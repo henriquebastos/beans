@@ -20,6 +20,10 @@ build/
 .DS_Store
 Thumbs.db
 
+# Tools
+.pytest_cache/
+.ruff_cache/
+
 # Coverage
 htmlcov/
 .coverage
