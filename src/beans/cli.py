@@ -36,12 +36,9 @@ def format_bean(bean: Bean) -> str:
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
 
 
-def resolve_id(store: BeanStore, bean_id: str) -> BeanId:
-    try:
-        return store.resolve_id(BeanId(bean_id))
-    except (KeyError, ValueError) as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(code=1) from e
+def bean_error(e: Exception):
+    typer.echo(str(e), err=True)
+    raise typer.Exit(code=1) from e
 
 
 def get_store() -> BeanStore:
@@ -62,9 +59,11 @@ def create(title: str):
 @app.command()
 def show(bean_id: str):
     """Show a single bean by id."""
-    with get_store() as store:
-        bean_id = resolve_id(store, bean_id)
-        bean = store.get_bean(bean_id)
+    try:
+        with get_store() as store:
+            bean = store.get_bean(BeanId(bean_id))
+    except (KeyError, ValueError) as e:
+        bean_error(e)
 
     typer.echo(format_bean(bean))
 
@@ -88,13 +87,11 @@ def update(
     if body is not None:
         fields["body"] = body
 
-    with get_store() as store:
-        bean_id = resolve_id(store, bean_id)
-        try:
-            bean = store.update_bean(bean_id, fields)
-        except (ValueError, ValidationError) as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1) from e
+    try:
+        with get_store() as store:
+            bean = store.update_bean(BeanId(bean_id), fields)
+    except (KeyError, ValueError, ValidationError) as e:
+        bean_error(e)
 
     typer.echo(format_bean(bean))
 
@@ -102,9 +99,11 @@ def update(
 @app.command()
 def close(bean_id: str):
     """Close a bean (set status=closed and closed_at)."""
-    with get_store() as store:
-        bean_id = resolve_id(store, bean_id)
-        bean = store.close_bean(bean_id)
+    try:
+        with get_store() as store:
+            bean = store.close_bean(BeanId(bean_id))
+    except (KeyError, ValueError) as e:
+        bean_error(e)
 
     typer.echo(format_bean(bean))
 
@@ -112,9 +111,11 @@ def close(bean_id: str):
 @app.command()
 def delete(bean_id: str):
     """Delete a bean."""
-    with get_store() as store:
-        bean_id = resolve_id(store, bean_id)
-        store.delete_bean(bean_id)
+    try:
+        with get_store() as store:
+            store.delete_bean(BeanId(bean_id))
+    except (KeyError, ValueError) as e:
+        bean_error(e)
 
     typer.echo(f"Deleted {bean_id}")
 

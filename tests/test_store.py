@@ -82,9 +82,9 @@ class TestBeanStoreGetBean:
         assert result.id == bean.id
         assert result.title == "Fix auth"
 
-    def test_get_nonexistent_bean_returns_none(self, store):
-        result = store.get_bean("bean-00000000")
-        assert result is None
+    def test_get_nonexistent_bean_raises(self, store):
+        with pytest.raises(KeyError, match="not found"):
+            store.get_bean(BeanId("bean-00000000"))
 
 
 class TestBeanStoreUpdateBean:
@@ -132,9 +132,9 @@ class TestBeanStoreUpdateBean:
         result = store.get_bean(bean.id)
         assert result.title == "Updated"
 
-    def test_update_nonexistent_bean_returns_none(self, store):
-        result = store.update_bean("bean-00000000", {"title": "Nope"})
-        assert result is None
+    def test_update_nonexistent_bean_raises(self, store):
+        with pytest.raises(KeyError, match="not found"):
+            store.update_bean(BeanId("bean-00000000"), {"title": "Nope"})
 
 
 class TestBeanStoreCloseBean:
@@ -159,9 +159,9 @@ class TestBeanStoreCloseBean:
         result = store.close_bean(bean.id)
         assert result.closed_at is not None
 
-    def test_close_nonexistent_bean_returns_none(self, store):
-        result = store.close_bean("bean-00000000")
-        assert result is None
+    def test_close_nonexistent_bean_raises(self, store):
+        with pytest.raises(KeyError, match="not found"):
+            store.close_bean(BeanId("bean-00000000"))
 
 
 class TestBeanStoreDeleteBean:
@@ -176,13 +176,13 @@ class TestBeanStoreDeleteBean:
         bean = Bean(title="Fix auth")
         store.create_bean(bean)
 
-        result = store.delete_bean(bean.id)
-        assert result is True
-        assert store.get_bean(bean.id) is None
+        store.delete_bean(bean.id)
+        with pytest.raises(KeyError, match="not found"):
+            store.get_bean(bean.id)
 
-    def test_delete_nonexistent_bean_returns_false(self, store):
-        result = store.delete_bean("bean-00000000")
-        assert result is False
+    def test_delete_nonexistent_bean_raises(self, store):
+        with pytest.raises(KeyError, match="not found"):
+            store.delete_bean(BeanId("bean-00000000"))
 
 
 class TestBeanStorePrefixMatch:

@@ -83,27 +83,26 @@ class BeanStore:
         self.conn.commit()
         return bean
 
-    def resolve_id(self, bean_id: BeanId) -> str:
+    def resolve_id(self, bean_id: BeanId) -> BeanId:
         cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (bean_id + "%",))
         matches = cursor.fetchall()
         if len(matches) == 0:
             raise KeyError(f"Bean not found: {bean_id}")
         if len(matches) > 1:
             raise ValueError(f"Ambiguous prefix: {bean_id}")
-        return matches[0][0]
+        return BeanId(matches[0][0])
 
-    def get_bean(self, bean_id: str) -> Bean | None:
+    def get_bean(self, bean_id: BeanId) -> Bean:
+        bean_id = self.resolve_id(bean_id)
         cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
-        r = cursor.fetchone()
-        if r is None:
-            return None
         cols = columns(cursor)
-        return Bean(**row(cols, r))
+        return Bean(**row(cols, cursor.fetchone()))
 
-    def close_bean(self, bean_id: str) -> Bean | None:
+    def close_bean(self, bean_id: BeanId) -> Bean:
         return self.update_bean(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
 
-    def update_bean(self, bean_id: str, fields: dict) -> Bean | None:
+    def update_bean(self, bean_id: BeanId, fields: dict) -> Bean:
+        bean_id = self.resolve_id(bean_id)
         if not fields:
             return self.get_bean(bean_id)
         for key in fields:
@@ -116,10 +115,10 @@ class BeanStore:
         self.conn.commit()
         return self.get_bean(bean_id)
 
-    def delete_bean(self, bean_id: str) -> bool:
-        cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
+    def delete_bean(self, bean_id: BeanId):
+        bean_id = self.resolve_id(bean_id)
+        self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
         self.conn.commit()
-        return cursor.rowcount > 0
 
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
