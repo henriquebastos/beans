@@ -48,4 +48,10 @@ jobs:
           git diff --staged --quiet || git commit -m "docs: update CHANGELOG.md" && git push
 
       - run: uv build
+
+      - name: Upload assets to GitHub Release
+        run: gh release upload ${{ github.event.release.tag_name }} dist/*
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pypa/gh-action-pypi-publish@release/v1
