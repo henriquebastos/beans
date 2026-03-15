@@ -25,8 +25,8 @@ def main(
     state["json"] = json_output
 
 
-def local_timestamp(dt: datetime) -> str:
-    return dt.astimezone().strftime("%Y-%m-%d %H:%M")
+def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
+    return dt.astimezone().strftime(fmt)
 
 
 def get_store() -> BeanStore:
