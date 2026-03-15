@@ -52,19 +52,9 @@ class TestBeanStoreCreateAndList:
         )
         store.create(bean)
 
-        result = store.list()[0]
-        assert result.id == bean.id
-        assert result.title == bean.title
-        assert result.type == bean.type
-        assert result.status == bean.status
-        assert result.priority == bean.priority
-        assert result.body == bean.body
-        assert result.parent_id == bean.parent_id
-        assert result.assignee == bean.assignee
-        assert result.created_by == bean.created_by
-        assert result.ref_id == bean.ref_id
-        assert result.created_at == bean.created_at
-
+        result, *_ = store.list()
+        assert result == bean
+        
 
 class TestBeanStoreGetBean:
     """BeanStore can retrieve a single bean by id."""
