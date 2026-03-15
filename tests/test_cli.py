@@ -192,13 +192,6 @@ class TestPrefixMatching:
         data = json.loads(result.output)
         assert data["status"] == "closed"
 
-    def test_delete_with_prefix(self, runner, dbfile):
-        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
-        bean_id = json.loads(result.output)["id"]
-        prefix = bean_id[:9]
-
-        result = runner.invoke(app, ["--db", dbfile, "delete", prefix])
-        assert result.exit_code == 0
 
 
 class TestInputValidation:

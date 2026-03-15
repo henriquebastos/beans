@@ -112,9 +112,10 @@ class BeanStore:
         return self.get_bean(bean.id)
 
     def delete_bean(self, bean_id):
-        bean = self.get_bean(bean_id)
-        self.conn.execute("DELETE FROM beans WHERE id = ?", (bean.id,))
+        cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
         self.conn.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Bean not found: {bean_id}")
 
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
