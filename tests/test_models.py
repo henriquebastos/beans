@@ -7,7 +7,7 @@ from pydantic import ValidationError
 # Pip imports
 import pytest
 
-from beans.models import Bean
+from beans.models import Bean, Error
 
 FIXED_TIME = datetime(2025, 1, 1, tzinfo=UTC)
 
@@ -80,6 +80,14 @@ class TestBeanValidation:
     def test_priority_too_low(self):
         with pytest.raises(ValidationError):
             Bean(title="Bad", priority=-1)
+
+
+class TestErrorModel:
+    """Error model for structured error output."""
+
+    def test_error_from_message(self):
+        err = Error(message="not found")
+        assert err.model_dump() == {"message": "not found"}
 
 
 class TestBeanIdUniqueness:

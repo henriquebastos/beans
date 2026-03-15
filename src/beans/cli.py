@@ -1,5 +1,6 @@
 # Python imports
 from datetime import UTC, datetime
+import json
 from typing import Annotated
 
 # Pip imports
@@ -7,7 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
 from beans.store import Store
 
 app = typer.Typer()
@@ -23,9 +24,11 @@ state: dict = {}
 def main(
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
 ):
     state["db"] = db
     state["json"] = json_output
+    state["dry_run"] = dry_run
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
@@ -50,13 +53,17 @@ def output(data, json=False) -> str:
 
 
 def error(e: Exception):
-    typer.echo(str(e), err=True)
+    err = Error(message=str(e))
+    if state.get("json"):
+        typer.echo(err.model_dump_json())
+    else:
+        typer.echo(err.message, err=True)
     raise typer.Exit(code=1) from e
 
 
 def get_store() -> Store:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
-    return Store.from_path(db_path)
+    return Store.from_path(db_path, dry_run=state.get("dry_run", False))
 
 
 @app.command()
@@ -136,6 +143,45 @@ def delete(bean_id: BeanIdArg):
         typer.echo(f"Deleted {bean_id}")
 
 
+@app.command()
+def claim(
+    bean_id: BeanIdArg,
+    actor: Annotated[str, typer.Option(help="Who is claiming the bean")],
+):
+    """Claim a bean (set assignee and status=in_progress)."""
+    try:
+        with get_store() as store:
+            bean = store.bean.claim(bean_id, actor)
+    except (BeanNotFoundError, ValueError) as e:
+        error(e)
+
+    typer.echo(output(bean, state["json"]))
+
+
+@app.command()
+def release(
+    bean_id: Annotated[str | None, typer.Argument(parser=BeanId)] = None,
+    actor: Annotated[str, typer.Option(help="Who is releasing the bean")] = "",
+    mine: Annotated[bool, typer.Option("--mine", help="Release all beans claimed by actor")] = False,
+):
+    """Release a claimed bean (clear assignee, set status=open)."""
+    if mine and bean_id:
+        error(ValueError("Provide a bean id or --mine, not both"))
+    elif mine:
+        with get_store() as store:
+            beans = store.bean.release_mine(actor)
+        typer.echo(output(beans, state["json"]))
+    elif bean_id:
+        try:
+            with get_store() as store:
+                bean = store.bean.release(bean_id, actor)
+        except (BeanNotFoundError, ValueError) as e:
+            error(e)
+        typer.echo(output(bean, state["json"]))
+    else:
+        error(ValueError("Provide a bean id or --mine"))
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""
@@ -152,6 +198,17 @@ def ready():
         beans = store.bean.ready()
 
     typer.echo(output(beans, state["json"]))
+
+
+@app.command()
+def schema():
+    """Output JSON schemas for all models."""
+    schemas = {
+        "Bean": Bean.model_json_schema(),
+        "Dep": Dep.model_json_schema(),
+        "Error": Error.model_json_schema(),
+    }
+    typer.echo(json.dumps(schemas))
 
 
 @dep_app.command("add")

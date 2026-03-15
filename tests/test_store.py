@@ -185,6 +185,81 @@ class TestBeanStoreReady:
         assert parent in store.bean.ready()
 
 
+class TestBeanStoreClaim:
+    """BeanStore.claim() atomically assigns a bean."""
+
+    def test_claim_sets_assignee_and_status(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+
+        result = store.bean.claim(bean.id, "alice")
+        assert result.assignee == "alice"
+        assert result.status == "in_progress"
+
+    def test_claim_same_actor_is_idempotent(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        first = store.bean.claim(bean.id, "alice")
+        second = store.bean.claim(bean.id, "alice")
+
+        assert first == second
+
+    def test_claim_different_actor_raises(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.claim(bean.id, "alice")
+
+        with pytest.raises(ValueError, match="already claimed"):
+            store.bean.claim(bean.id, "bob")
+
+    def test_claim_nonexistent_raises(self, store):
+        with pytest.raises(BeanNotFoundError):
+            store.bean.claim(BeanId("bean-00000000"), "alice")
+
+
+class TestBeanStoreRelease:
+    """BeanStore.release() clears assignee and sets status=open."""
+
+    def test_release_clears_assignee(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.claim(bean.id, "alice")
+
+        result = store.bean.release(bean.id, "alice")
+        assert result.assignee is None
+        assert result.status == "open"
+
+    def test_release_unclaimed_is_idempotent(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+
+        result = store.bean.release(bean.id, "alice")
+        assert result == bean
+
+    def test_release_by_different_actor_raises(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.claim(bean.id, "alice")
+
+        with pytest.raises(ValueError, match="claimed by alice"):
+            store.bean.release(bean.id, "bob")
+
+    def test_release_nonexistent_raises(self, store):
+        with pytest.raises(BeanNotFoundError):
+            store.bean.release(BeanId("bean-00000000"), "alice")
+
+    def test_release_mine(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        store.bean.create(Bean(title="Task C"))
+        store.bean.claim(a.id, "alice")
+        store.bean.claim(b.id, "alice")
+
+        released = store.bean.release_mine("alice")
+        assert len(released) == 2
+        assert all(b.assignee is None for b in released)
+        assert all(b.status == "open" for b in released)
+
+    def test_release_mine_no_claims(self, store):
+        store.bean.create(Bean(title="Task A"))
+
+        assert store.bean.release_mine("alice") == []
+
+
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
 

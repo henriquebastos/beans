@@ -20,8 +20,6 @@ def invoke_agent(dbfile):
 
     def invoke(*args):
         result = runner.invoke(app, ["--db", dbfile, "--json", *args])
-        if result.exit_code != 0:
-            return result.exit_code, None
         data = json.loads(result.output) if result.output.strip() else None
         return result.exit_code, data
 
@@ -216,6 +214,72 @@ class TestDepRemoveCommand:
         assert invoke_human("dep", "remove", "bean-aaaaaaaa", "bean-bbbbbbbb") != 0
 
 
+class TestClaimCommand:
+    """'beans claim' atomically claims a bean."""
+
+    def test_claim_sets_assignee(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("claim", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] == "alice"
+        assert data["status"] == "in_progress"
+
+    def test_claim_already_claimed(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        invoke_agent("claim", created["id"], "--actor", "alice")
+
+        exit_code, _ = invoke_agent("claim", created["id"], "--actor", "bob")
+        assert exit_code != 0
+
+
+class TestReleaseCommand:
+    """'beans release' releases a claimed bean."""
+
+    def test_release_clears_assignee(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        invoke_agent("claim", created["id"], "--actor", "alice")
+
+        exit_code, data = invoke_agent("release", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] is None
+        assert data["status"] == "open"
+
+    def test_release_unclaimed_is_idempotent(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("release", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] is None
+
+    def test_release_by_different_actor(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        invoke_agent("claim", created["id"], "--actor", "alice")
+
+        exit_code, _ = invoke_agent("release", created["id"], "--actor", "bob")
+        assert exit_code != 0
+
+    def test_release_mine(self, invoke_agent):
+        _, a = invoke_agent("create", "Task A")
+        _, b = invoke_agent("create", "Task B")
+        invoke_agent("claim", a["id"], "--actor", "alice")
+        invoke_agent("claim", b["id"], "--actor", "alice")
+
+        exit_code, data = invoke_agent("release", "--mine", "--actor", "alice")
+        assert exit_code == 0
+        assert len(data) == 2
+
+    def test_release_mine_empty(self, invoke_agent):
+        exit_code, data = invoke_agent("release", "--mine", "--actor", "alice")
+        assert exit_code == 0
+        assert data == []
+
+    def test_release_both_id_and_mine_is_error(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        exit_code, _ = invoke_agent("release", created["id"], "--mine", "--actor", "alice")
+        assert exit_code != 0
+
+
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
 
@@ -241,6 +305,89 @@ class TestHumanOutput:
         _, b = invoke_agent("create", "Task B")
         invoke_agent("dep", "add", a["id"], b["id"])
         assert invoke_human("dep", "remove", a["id"], b["id"]) == 0
+
+
+class TestDryRunMode:
+    """'--dry-run' shows what would happen without writing."""
+
+    def test_dry_run_create_shows_bean_but_does_not_persist(self, invoke_agent):
+        exit_code, data = invoke_agent("--dry-run", "create", "Fix auth")
+        assert exit_code == 0
+        assert data["title"] == "Fix auth"
+
+        _, beans = invoke_agent("list")
+        assert beans == []
+
+    def test_dry_run_update_shows_change_but_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Old title")
+
+        exit_code, data = invoke_agent("--dry-run", "update", created["id"], "--title", "New title")
+        assert exit_code == 0
+        assert data["title"] == "New title"
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["title"] == "Old title"
+
+    def test_dry_run_delete_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, _ = invoke_agent("--dry-run", "delete", created["id"])
+        assert exit_code == 0
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["title"] == "Fix auth"
+
+    def test_dry_run_close_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("--dry-run", "close", created["id"])
+        assert exit_code == 0
+        assert data["status"] == "closed"
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["status"] == "open"
+
+    def test_dry_run_claim_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("--dry-run", "claim", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] == "alice"
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["assignee"] is None
+
+
+class TestSchemaCommand:
+    """'beans schema' outputs JSON schemas for all models."""
+
+    def test_schema_includes_all_models(self, invoke_agent):
+        exit_code, data = invoke_agent("schema")
+        assert exit_code == 0
+        assert "Bean" in data
+        assert "Dep" in data
+        assert "Error" in data
+
+    def test_schema_bean_has_properties(self, invoke_agent):
+        exit_code, data = invoke_agent("schema")
+        assert exit_code == 0
+        assert "properties" in data["Bean"]
+        assert "id" in data["Bean"]["properties"]
+        assert "title" in data["Bean"]["properties"]
+
+
+class TestJsonErrorOutput:
+    """Errors in --json mode return structured JSON."""
+
+    def test_show_nonexistent_returns_json_error(self, invoke_agent):
+        exit_code, data = invoke_agent("show", "bean-00000000")
+        assert exit_code != 0
+        assert "message" in data
+
+    def test_update_nonexistent_returns_json_error(self, invoke_agent):
+        exit_code, data = invoke_agent("update", "bean-00000000", "--title", "Nope")
+        assert exit_code != 0
+        assert "message" in data
 
 
 class TestInputValidation:
