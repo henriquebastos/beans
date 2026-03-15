@@ -1,3 +1,8 @@
+## [0.4.1] - 2026-03-15
+
+### 📚 Documentation
+
+- Add release instructions to AGENTS.md
 ## [0.4.0] - 2026-03-15
 
 ### 🚀 Features
@@ -86,6 +91,7 @@
 - Opt into Node.js 24 for GitHub Actions
 - Add MIT license file
 - Add dist/ to gitignore
+- Bump version to 0.4.0
 ## [0.1.1] - 2026-03-15
 
 ### 🐛 Bug Fixes
