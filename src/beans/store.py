@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS beans (
 """
 
 
+UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
+
+
 class BeanStore:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
@@ -81,6 +84,8 @@ class BeanStore:
         return bean
 
     def resolve_id(self, prefix: str) -> str:
+        if not prefix.startswith("bean-"):
+            raise ValueError(f"Invalid bean id: {prefix}")
         cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (prefix + "%",))
         matches = cursor.fetchall()
         if len(matches) == 0:
@@ -103,6 +108,10 @@ class BeanStore:
     def update_bean(self, bean_id: str, fields: dict) -> Bean | None:
         if not fields:
             return self.get_bean(bean_id)
+        for key in fields:
+            if key not in UPDATABLE_FIELDS:
+                raise ValueError(f"Invalid field: {key}")
+        Bean.model_validate({"id": bean_id, "title": "validate", **fields})
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = [*fields.values(), bean_id]
         self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)

@@ -224,3 +224,30 @@ class TestBeanStorePrefixMatch:
     def test_no_match_raises(self, store):
         with pytest.raises(KeyError, match="not found"):
             store.resolve_id("bean-zzzzzzzz")
+
+
+class TestBeanStoreValidation:
+    """BeanStore validates inputs."""
+
+    @pytest.fixture()
+    def store(self):
+        with BeanStore(sqlite3.connect(":memory:")) as s:
+            yield s
+
+    def test_update_invalid_status_rejected(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        with pytest.raises(ValueError, match="status"):
+            store.update_bean(bean.id, {"status": "deleted"})
+
+    def test_update_invalid_priority_rejected(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        with pytest.raises(ValueError, match="priority"):
+            store.update_bean(bean.id, {"priority": 5})
+
+    def test_resolve_id_rejects_invalid_format(self, store):
+        with pytest.raises(ValueError, match="Invalid bean id"):
+            store.resolve_id("not-a-bean-id")

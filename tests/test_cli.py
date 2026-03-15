@@ -199,3 +199,25 @@ class TestPrefixMatching:
 
         result = runner.invoke(app, ["--db", dbfile, "delete", prefix])
         assert result.exit_code == 0
+
+
+class TestInputValidation:
+    """Invalid inputs are rejected with clear errors."""
+
+    def test_update_invalid_status(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "update", bean_id, "--status", "deleted"])
+        assert result.exit_code != 0
+
+    def test_update_invalid_priority(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "update", bean_id, "--priority", "5"])
+        assert result.exit_code != 0
+
+    def test_show_invalid_id_format(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "show", "not-a-bean-id"])
+        assert result.exit_code != 0

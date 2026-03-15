@@ -4,6 +4,7 @@ import json
 from typing import Annotated
 
 # Pip imports
+from pydantic import ValidationError
 import typer
 
 # Internal imports
@@ -93,7 +94,11 @@ def update(
 
     with get_store() as store:
         bean_id = resolve_id(store, bean_id)
-        bean = store.update_bean(bean_id, fields)
+        try:
+            bean = store.update_bean(bean_id, fields)
+        except (ValueError, ValidationError) as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1) from e
 
     if state.get("json"):
         typer.echo(bean.model_dump_json())
