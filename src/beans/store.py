@@ -59,12 +59,12 @@ class BeanStore:
 
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
-        rows = cursor.fetchall()
         columns = [desc[0] for desc in cursor.description]
-        beans = []
-        for row in rows:
-            data = dict(zip(columns, row))
-            data["labels"] = json.loads(data["labels"])
-            data["created_at"] = datetime.datetime.fromisoformat(data["created_at"])
-            beans.append(Bean(**data))
-        return beans
+        return [self._row_to_bean(columns, row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def _row_to_bean(columns: list[str], row: tuple) -> Bean:
+        data = dict(zip(columns, row))
+        data["labels"] = json.loads(data["labels"])
+        data["created_at"] = datetime.datetime.fromisoformat(data["created_at"])
+        return Bean(**data)
