@@ -42,6 +42,13 @@ def resolve_id(store: BeanStore, prefix: str) -> str:
         raise typer.Exit(code=1) from e
 
 
+def output_bean(bean: Bean):
+    if state.get("json"):
+        typer.echo(bean.model_dump_json())
+    else:
+        typer.echo(format_bean(bean))
+
+
 def get_store() -> BeanStore:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
     return BeanStore.from_path(db_path)
@@ -54,10 +61,7 @@ def create(title: str):
     with get_store() as store:
         store.create_bean(bean)
 
-    if state.get("json"):
-        typer.echo(bean.model_dump_json())
-    else:
-        typer.echo(format_bean(bean))
+    output_bean(bean)
 
 
 @app.command()
@@ -67,10 +71,7 @@ def show(bean_id: str):
         bean_id = resolve_id(store, bean_id)
         bean = store.get_bean(bean_id)
 
-    if state.get("json"):
-        typer.echo(bean.model_dump_json())
-    else:
-        typer.echo(format_bean(bean))
+    output_bean(bean)
 
 
 @app.command()
@@ -100,10 +101,7 @@ def update(
             typer.echo(str(e), err=True)
             raise typer.Exit(code=1) from e
 
-    if state.get("json"):
-        typer.echo(bean.model_dump_json())
-    else:
-        typer.echo(format_bean(bean))
+    output_bean(bean)
 
 
 @app.command()
@@ -113,10 +111,7 @@ def close(bean_id: str):
         bean_id = resolve_id(store, bean_id)
         bean = store.close_bean(bean_id)
 
-    if state.get("json"):
-        typer.echo(bean.model_dump_json())
-    else:
-        typer.echo(format_bean(bean))
+    output_bean(bean)
 
 
 @app.command()
