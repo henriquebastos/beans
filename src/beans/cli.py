@@ -37,8 +37,8 @@ def get_store() -> BeanStore:
 @app.command()
 def create(title: str):
     """Create a new bean."""
+    bean = Bean(title=title)
     with get_store() as store:
-        bean = Bean(title=title)
         store.create_bean(bean)
 
     if state.get("json"):
