@@ -7,6 +7,9 @@ import sqlite3
 from beans.models import Bean
 
 SCHEMA = """
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+
 CREATE TABLE IF NOT EXISTS beans (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -30,8 +33,6 @@ class BeanStore:
         self._init_db()
 
     def _init_db(self):
-        self.conn.execute("PRAGMA journal_mode=WAL;")
-        self.conn.execute("PRAGMA foreign_keys=ON;")
         self.conn.executescript(SCHEMA)
 
     @classmethod
