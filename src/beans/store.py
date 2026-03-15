@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS deps (
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
 
 
-class Store:
+class BaseStore:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
@@ -53,7 +53,7 @@ class Store:
         conn.executescript(schema)
 
     @classmethod
-    def from_path(cls, db_path: str) -> Store:
+    def from_path(cls, db_path: str) -> BaseStore:
         return cls(sqlite3.connect(db_path))
 
     def close(self):
@@ -66,7 +66,7 @@ class Store:
         self.close()
 
 
-class BeanStore(Store):
+class BeanStore(BaseStore):
     def create(self, bean: Bean) -> Bean:
         with self.conn:
             self.conn.execute(
@@ -152,7 +152,7 @@ class BeanStore(Store):
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
 
 
-class DepStore(Store):
+class DepStore(BaseStore):
     def add(self, from_id, to_id, dep_type="blocks") -> Dep:
         dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
         with self.conn:
@@ -179,7 +179,7 @@ class DepStore(Store):
         return cursor.rowcount
 
 
-class MainStore(Store):
+class Store(BaseStore):
     def __init__(self, conn: sqlite3.Connection):
         super().__init__(conn)
         self.init_db(conn)

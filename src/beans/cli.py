@@ -8,7 +8,7 @@ import typer
 
 # Internal imports
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep
-from beans.store import MainStore
+from beans.store import Store
 
 app = typer.Typer()
 dep_app = typer.Typer()
@@ -54,9 +54,9 @@ def error(e: Exception):
     raise typer.Exit(code=1) from e
 
 
-def get_store() -> MainStore:
+def get_store() -> Store:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
-    return MainStore.from_path(db_path)
+    return Store.from_path(db_path)
 
 
 @app.command()
