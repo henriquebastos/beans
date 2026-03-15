@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 ID_BYTES = 4
 
 
-def generate_id(prefix="bean-", fn=partial(secrets.token_hex, ID_BYTES)):
+def generate_id(prefix="bean-", fn=partial(secrets.token_hex, ID_BYTES)) -> str:
     return prefix + fn()
 
 
