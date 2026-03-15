@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, BeanId
 from beans.store import BeanStore
 
 
@@ -248,6 +248,6 @@ class TestBeanStoreValidation:
         with pytest.raises(ValueError, match="priority"):
             store.update_bean(bean.id, {"priority": 5})
 
-    def test_resolve_id_rejects_invalid_format(self, store):
+    def test_invalid_bean_id_rejected(self, store):
         with pytest.raises(ValueError, match="Invalid bean id"):
-            store.resolve_id("not-a-bean-id")
+            BeanId("not-a-bean-id")

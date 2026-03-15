@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, BeanId
 from beans.store import BeanStore
 
 app = typer.Typer()
@@ -38,7 +38,7 @@ def format_bean(bean: Bean) -> str:
 
 def resolve_id(store: BeanStore, bean_id: str) -> str:
     try:
-        return store.resolve_id(bean_id)
+        return store.resolve_id(BeanId(bean_id))
     except (KeyError, ValueError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(code=1) from e

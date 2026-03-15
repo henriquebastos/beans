@@ -83,8 +83,7 @@ class BeanStore:
         self.conn.commit()
         return bean
 
-    def resolve_id(self, bean_id: str) -> str:
-        BeanId(bean_id)
+    def resolve_id(self, bean_id: BeanId) -> str:
         cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (bean_id + "%",))
         matches = cursor.fetchall()
         if len(matches) == 0:
