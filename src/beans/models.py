@@ -23,13 +23,13 @@ class BeanId(str):
 
         return core_schema.no_info_plain_validator_function(cls)
 
-
-def generate_id(prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
-    return BeanId(prefix + fn())
+    @classmethod
+    def generate(cls, prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
+        return cls(prefix + fn())
 
 
 class Bean(BaseModel):
-    id: BeanId = Field(default_factory=generate_id)
+    id: BeanId = Field(default_factory=BeanId.generate)
     title: str
     type: str = "task"
     status: Literal["open", "in_progress", "closed"] = "open"
