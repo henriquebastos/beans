@@ -274,6 +274,45 @@ class JournalStore(BaseStore):
             }
             yield json.dumps(entry)
 
+    def replay(self, lines):
+        with self.conn:
+            for line in lines:
+                entry = json.loads(line)
+                action = entry["action"]
+                snapshot = entry["snapshot"]
+                bean_id = entry["bean_id"]
+
+                if action == "create":
+                    bean = Bean(**snapshot)
+                    self.conn.execute(
+                        """INSERT INTO beans
+                        (id, title, type, status, priority, body,
+                        parent_id, assignee, created_by, ref_id, created_at, closed_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            bean.id, bean.title, bean.type, bean.status, bean.priority,
+                            bean.body, bean.parent_id, bean.assignee, bean.created_by,
+                            bean.ref_id, bean.created_at.isoformat(),
+                            bean.closed_at.isoformat() if bean.closed_at else None,
+                        ),
+                    )
+                elif action == "update":
+                    bean = Bean(**snapshot)
+                    self.conn.execute(
+                        """UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,
+                        parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?
+                        WHERE id=?""",
+                        (
+                            bean.title, bean.type, bean.status, bean.priority,
+                            bean.body, bean.parent_id, bean.assignee, bean.created_by,
+                            bean.ref_id, bean.created_at.isoformat(),
+                            bean.closed_at.isoformat() if bean.closed_at else None,
+                            bean.id,
+                        ),
+                    )
+                elif action == "delete":
+                    self.conn.execute("DELETE FROM beans WHERE id=?", (bean_id,))
+
 
 class DryRunConnection:
     """Wraps a sqlite3.Connection to prevent commits for dry-run mode."""

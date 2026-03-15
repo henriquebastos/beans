@@ -143,3 +143,52 @@ class TestJournalExport:
         assert len(lines) == 3
         actions = [json.loads(line)["action"] for line in lines]
         assert actions == ["create", "update", "delete"]
+
+
+class TestJournalReplay:
+    """store.journal.replay() rebuilds database state from JSONL lines."""
+
+    def test_replay_create(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        lines = list(store.journal.export())
+
+        with Store(sqlite3.connect(":memory:")) as target:
+            target.journal.replay(lines)
+            assert target.bean.list() == [bean]
+
+    def test_replay_create_and_update(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.update(bean.id, title="Updated")
+        lines = list(store.journal.export())
+
+        with Store(sqlite3.connect(":memory:")) as target:
+            target.journal.replay(lines)
+            result = target.bean.get(bean.id)
+            assert result.title == "Updated"
+
+    def test_replay_create_and_delete(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.delete(bean.id)
+        lines = list(store.journal.export())
+
+        with Store(sqlite3.connect(":memory:")) as target:
+            target.journal.replay(lines)
+            assert target.bean.list() == []
+
+    def test_replay_full_cycle(self, store):
+        b1 = store.bean.create(Bean(title="First"))
+        b2 = store.bean.create(Bean(title="Second"))
+        store.bean.update(b1.id, title="First Updated")
+        store.bean.delete(b2.id)
+        lines = list(store.journal.export())
+
+        with Store(sqlite3.connect(":memory:")) as target:
+            target.journal.replay(lines)
+            beans = target.bean.list()
+            assert len(beans) == 1
+            assert beans[0].title == "First Updated"
+
+    def test_replay_empty(self, store):
+        with Store(sqlite3.connect(":memory:")) as target:
+            target.journal.replay([])
+            assert target.bean.list() == []

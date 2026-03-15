@@ -219,6 +219,18 @@ def export_journal():
             typer.echo(line)
 
 
+@app.command()
+def rebuild(journal_file: str):
+    """Rebuild database from a JSONL journal file."""
+    with open(journal_file) as f:
+        lines = [line.strip() for line in f if line.strip()]
+
+    with get_store() as store:
+        store.journal.replay(lines)
+
+    typer.echo(f"Replayed {len(lines)} entries")
+
+
 @dep_app.command("add")
 def dep_add(
     from_id: BeanIdArg,
