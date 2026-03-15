@@ -1,6 +1,6 @@
 # Python imports
-import datetime
 import json
+from datetime import datetime
 from typing import Annotated
 
 # Pip imports
@@ -25,7 +25,7 @@ def main(
     _state["json"] = json_output
 
 
-def local_timestamp(dt: datetime.datetime) -> str:
+def local_timestamp(dt: datetime) -> str:
     return dt.astimezone().strftime("%Y-%m-%d %H:%M")
 
 

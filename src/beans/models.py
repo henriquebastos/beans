@@ -1,6 +1,6 @@
 # Python imports
-import datetime
 import secrets
+from datetime import UTC, datetime
 from functools import partial
 from typing import Literal
 
@@ -26,4 +26,4 @@ class Bean(BaseModel):
     assignee: str | None = None
     created_by: str | None = None
     ref_id: str | None = None
-    created_at: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
