@@ -1,5 +1,6 @@
 # Python imports
 import sqlite3
+from typing import Self
 
 # Internal imports
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep
@@ -53,18 +54,8 @@ class BaseStore:
         conn.executescript(schema)
 
     @classmethod
-    def from_path(cls, db_path: str) -> BaseStore:
+    def from_path(cls, db_path: str) -> Self:
         return cls(sqlite3.connect(db_path))
-
-    def close(self):
-        self.conn.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
-
 
 class BeanStore(BaseStore):
     def create(self, bean: Bean) -> Bean:
@@ -185,3 +176,12 @@ class Store(BaseStore):
         self.init_db(conn)
         self.bean = BeanStore(conn)
         self.dep = DepStore(conn)
+
+    def close(self):
+        self.conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
