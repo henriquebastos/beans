@@ -55,3 +55,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew formula
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: beans
+          homebrew-tap: henriquebastos/homebrew-tap
+          tag-name: ${{ github.event.release.tag_name }}
+          download-url: https://files.pythonhosted.org/packages/source/m/magic-beans/magic_beans-${{ github.event.release.tag_name }}.tar.gz
+        env:
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
