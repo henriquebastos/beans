@@ -18,7 +18,6 @@ class Bean(BaseModel):
     status: Literal["open", "in_progress", "closed"] = "open"
     priority: int = Field(default=2, ge=0, le=4)
     body: str = ""
-    labels: list[str] = Field(default_factory=list)
     parent_id: str | None = None
     assignee: str | None = None
     created_by: str | None = None

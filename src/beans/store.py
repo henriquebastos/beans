@@ -1,5 +1,4 @@
 # Python imports
-import json
 import sqlite3
 
 # Internal imports
@@ -20,7 +19,6 @@ CREATE TABLE IF NOT EXISTS beans (
     status TEXT NOT NULL DEFAULT 'open',
     priority INTEGER NOT NULL DEFAULT 2,
     body TEXT NOT NULL DEFAULT '',
-    labels TEXT NOT NULL DEFAULT '[]',
     parent_id TEXT,
     assignee TEXT,
     created_by TEXT,
@@ -49,8 +47,8 @@ class BeanStore:
     def create_bean(self, bean: Bean) -> Bean:
         self.conn.execute(
             """INSERT INTO beans
-            (id, title, type, status, priority, body, labels, parent_id, assignee, created_by, ref_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 bean.id,
                 bean.title,
@@ -58,7 +56,6 @@ class BeanStore:
                 bean.status,
                 bean.priority,
                 bean.body,
-                json.dumps(bean.labels),
                 bean.parent_id,
                 bean.assignee,
                 bean.created_by,
@@ -75,6 +72,4 @@ class BeanStore:
 
     @staticmethod
     def _row_to_bean(columns: list[str], row: tuple) -> Bean:
-        data = dict(zip(columns, row))
-        data["labels"] = json.loads(data["labels"])
-        return Bean(**data)
+        return Bean(**dict(zip(columns, row)))

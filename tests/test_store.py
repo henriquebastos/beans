@@ -47,7 +47,6 @@ class TestBeanStoreCreateAndList:
             status="in_progress",
             priority=0,
             body="Some details",
-            labels=["backend", "urgent"],
             parent_id="bean-00000000",
             assignee="alice",
             created_by="bob",
@@ -62,7 +61,6 @@ class TestBeanStoreCreateAndList:
         assert result.status == bean.status
         assert result.priority == bean.priority
         assert result.body == bean.body
-        assert result.labels == bean.labels
         assert result.parent_id == bean.parent_id
         assert result.assignee == bean.assignee
         assert result.created_by == bean.created_by

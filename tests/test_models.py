@@ -35,9 +35,6 @@ class TestBeanDefaults:
     def test_body_defaults_to_empty(self, bean):
         assert bean.body == ""
 
-    def test_labels_defaults_to_empty(self, bean):
-        assert bean.labels == []
-
     def test_parent_id_defaults_to_none(self, bean):
         assert bean.parent_id is None
 
