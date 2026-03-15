@@ -1,6 +1,6 @@
 # Python imports
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Pip imports
 import pytest
@@ -9,16 +9,17 @@ from pydantic import ValidationError
 # Internal imports
 from beans.models import Bean
 
+FIXED_TIME = datetime(2025, 1, 1, tzinfo=UTC)
+
 
 class TestBeanDefaults:
     """A Bean created with only a title gets sensible defaults."""
 
     def test_defaults(self):
-        bean = Bean(title="Fix auth")
+        bean = Bean(id="bean-00000000", title="Fix auth", created_at=FIXED_TIME)
 
-        assert re.fullmatch(r"bean-[0-9a-f]{8}", bean.id)
-        assert isinstance(bean.created_at, datetime)
-        assert bean.model_dump(exclude={"id", "created_at"}) == {
+        assert bean.model_dump() == {
+            "id": "bean-00000000",
             "title": "Fix auth",
             "type": "task",
             "status": "open",
@@ -28,7 +29,16 @@ class TestBeanDefaults:
             "assignee": None,
             "created_by": None,
             "ref_id": None,
+            "created_at": FIXED_TIME,
         }
+
+    def test_id_format(self):
+        bean = Bean(title="Fix auth")
+        assert re.fullmatch(r"bean-[0-9a-f]{8}", bean.id)
+
+    def test_created_at_is_set(self):
+        bean = Bean(title="Fix auth")
+        assert isinstance(bean.created_at, datetime)
 
 
 class TestBeanCustomFields:
