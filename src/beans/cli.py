@@ -30,7 +30,7 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
 
 
 def get_store() -> BeanStore:
-    db_path = state.get("db") or "beans.db"
+    db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
     return BeanStore.from_path(db_path)
 
 
