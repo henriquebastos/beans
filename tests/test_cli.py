@@ -20,8 +20,6 @@ def invoke_agent(dbfile):
 
     def invoke(*args):
         result = runner.invoke(app, ["--db", dbfile, "--json", *args])
-        if result.exit_code != 0:
-            return result.exit_code, None
         data = json.loads(result.output) if result.output.strip() else None
         return result.exit_code, data
 
@@ -341,21 +339,35 @@ class TestDryRunMode:
 
 
 class TestSchemaCommand:
-    """'beans schema' outputs JSON schema for Bean model."""
+    """'beans schema' outputs JSON schemas for all models."""
 
-    def test_schema_outputs_valid_json(self, invoke_agent):
+    def test_schema_includes_all_models(self, invoke_agent):
         exit_code, data = invoke_agent("schema")
         assert exit_code == 0
-        assert data["title"] == "Bean"
-        assert "properties" in data
+        assert "Bean" in data
+        assert "Dep" in data
+        assert "Error" in data
 
-    def test_schema_includes_fields(self, invoke_agent):
+    def test_schema_bean_has_properties(self, invoke_agent):
         exit_code, data = invoke_agent("schema")
         assert exit_code == 0
-        props = data["properties"]
-        assert "id" in props
-        assert "title" in props
-        assert "status" in props
+        assert "properties" in data["Bean"]
+        assert "id" in data["Bean"]["properties"]
+        assert "title" in data["Bean"]["properties"]
+
+
+class TestJsonErrorOutput:
+    """Errors in --json mode return structured JSON."""
+
+    def test_show_nonexistent_returns_json_error(self, invoke_agent):
+        exit_code, data = invoke_agent("show", "bean-00000000")
+        assert exit_code != 0
+        assert "message" in data
+
+    def test_update_nonexistent_returns_json_error(self, invoke_agent):
+        exit_code, data = invoke_agent("update", "bean-00000000", "--title", "Nope")
+        assert exit_code != 0
+        assert "message" in data
 
 
 class TestInputValidation:

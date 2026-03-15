@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
 from beans.store import Store
 
 app = typer.Typer()
@@ -53,7 +53,11 @@ def output(data, json=False) -> str:
 
 
 def error(e: Exception):
-    typer.echo(str(e), err=True)
+    err = Error(message=str(e))
+    if state.get("json"):
+        typer.echo(err.model_dump_json())
+    else:
+        typer.echo(err.message, err=True)
     raise typer.Exit(code=1) from e
 
 
@@ -189,8 +193,13 @@ def ready():
 
 @app.command()
 def schema():
-    """Output JSON schema for the Bean model."""
-    typer.echo(json.dumps(Bean.model_json_schema()))
+    """Output JSON schemas for all models."""
+    schemas = {
+        "Bean": Bean.model_json_schema(),
+        "Dep": Dep.model_json_schema(),
+        "Error": Error.model_json_schema(),
+    }
+    typer.echo(json.dumps(schemas))
 
 
 @dep_app.command("add")

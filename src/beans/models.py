@@ -37,6 +37,10 @@ class BeanId(str):
         return cls(prefix + fn())
 
 
+class Error(BaseModel):
+    message: str
+
+
 class Dep(BaseModel, frozen=True):
     from_id: BeanId
     to_id: BeanId
