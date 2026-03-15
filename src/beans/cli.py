@@ -31,13 +31,13 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 
 
-def format_bean(bean: Bean) -> str:
+def line(bean: Bean) -> str:
     if state.get("json"):
         return bean.model_dump_json()
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
 
 
-def bean_error(e: Exception):
+def error(e: Exception):
     typer.echo(str(e), err=True)
     raise typer.Exit(code=1) from e
 
@@ -54,7 +54,7 @@ def create(title: str):
     with get_store() as store:
         store.create(bean)
 
-    typer.echo(format_bean(bean))
+    typer.echo(line(bean))
 
 
 @app.command()
@@ -64,9 +64,9 @@ def show(bean_id: BeanIdArg):
         with get_store() as store:
             bean = store.get(bean_id)
     except BeanNotFoundError as e:
-        bean_error(e)
+        error(e)
 
-    typer.echo(format_bean(bean))
+    typer.echo(line(bean))
 
 
 @app.command()
@@ -84,7 +84,7 @@ def update(
     try:
         Bean.model_validate({"id": "bean-00000000", "title": "validate", **fields})
     except ValidationError as e:
-        bean_error(e)
+        error(e)
 
     try:
         with get_store() as store:
@@ -92,9 +92,9 @@ def update(
                 raise BeanNotFoundError(bean_id)
             bean = store.get(bean_id)
     except BeanNotFoundError as e:
-        bean_error(e)
+        error(e)
 
-    typer.echo(format_bean(bean))
+    typer.echo(line(bean))
 
 
 @app.command()
@@ -105,9 +105,9 @@ def close(bean_id: BeanIdArg):
             store.update(bean_id, status="closed", closed_at=datetime.now(UTC).isoformat())
             bean = store.get(bean_id)
     except BeanNotFoundError as e:
-        bean_error(e)
+        error(e)
 
-    typer.echo(format_bean(bean))
+    typer.echo(line(bean))
 
 
 @app.command()
@@ -115,7 +115,7 @@ def delete(bean_id: BeanIdArg):
     """Delete a bean."""
     with get_store() as store:
         if store.delete(bean_id) == 0:
-            bean_error(BeanNotFoundError(bean_id))
+            error(BeanNotFoundError(bean_id))
 
     typer.echo(f"Deleted {bean_id}")
 
@@ -130,4 +130,4 @@ def list_beans():
         typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
     else:
         for bean in beans:
-            typer.echo(format_bean(bean))
+            typer.echo(line(bean))
