@@ -72,28 +72,28 @@ class TestBeanStoreUpdateBean:
         bean = Bean(title="Old title")
         store.create(bean)
 
-        assert store.update(bean.id, {"title": "New title"}) == 1
+        assert store.update(bean.id, title="New title") == 1
         assert store.get(bean.id).title == "New title"
 
     def test_update_status(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        assert store.update(bean.id, {"status": "in_progress"}) == 1
+        assert store.update(bean.id, status="in_progress") == 1
         assert store.get(bean.id).status == "in_progress"
 
     def test_update_priority(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        assert store.update(bean.id, {"priority": 0}) == 1
+        assert store.update(bean.id, priority=0) == 1
         assert store.get(bean.id).priority == 0
 
     def test_update_multiple_fields(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        assert store.update(bean.id, {"title": "New title", "status": "closed"}) == 1
+        assert store.update(bean.id, title="New title", status="closed") == 1
         result = store.get(bean.id)
         assert result.title == "New title"
         assert result.status == "closed"
@@ -102,11 +102,11 @@ class TestBeanStoreUpdateBean:
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        assert store.update(bean.id, {}) == 0
+        assert store.update(bean.id) == 0
 
     def test_update_nonexistent_bean_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.update(BeanId("bean-00000000"), {"title": "Nope"})
+            store.update(BeanId("bean-00000000"), title="Nope")
 
 
 class TestBeanStoreDeleteBean:
@@ -165,14 +165,14 @@ class TestBeanStoreValidation:
         store.create(bean)
 
         with pytest.raises(ValueError, match="status"):
-            store.update(bean.id, {"status": "deleted"})
+            store.update(bean.id, status="deleted")
 
     def test_update_invalid_priority_rejected(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
 
         with pytest.raises(ValueError, match="priority"):
-            store.update(bean.id, {"priority": 5})
+            store.update(bean.id, priority=5)
 
     def test_invalid_bean_id_rejected(self, store):
         with pytest.raises(ValueError, match="Invalid bean id"):

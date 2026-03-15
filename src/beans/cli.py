@@ -83,7 +83,7 @@ def update(
 
     try:
         with get_store() as store:
-            store.update(bean_id, fields)
+            store.update(bean_id, **fields)
             bean = store.get(bean_id)
     except (BeanNotFoundError, AmbiguousIdError, ValueError, ValidationError) as e:
         bean_error(e)
@@ -96,7 +96,7 @@ def close(bean_id: BeanIdArg):
     """Close a bean (set status=closed and closed_at)."""
     try:
         with get_store() as store:
-            store.update(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
+            store.update(bean_id, status="closed", closed_at=datetime.now(UTC).isoformat())
             bean = store.get(bean_id)
     except (BeanNotFoundError, AmbiguousIdError) as e:
         bean_error(e)

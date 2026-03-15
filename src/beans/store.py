@@ -96,7 +96,7 @@ class BeanStore:
         cols = columns(cursor)
         return Bean(**row(cols, matches[0]))
 
-    def update(self, bean_id, fields: dict) -> int:
+    def update(self, bean_id, **fields) -> int:
         if not fields:
             return 0
 
