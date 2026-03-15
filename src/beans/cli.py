@@ -159,12 +159,12 @@ def dep_add(
 ):
     """Add a dependency between two beans."""
     with get_store() as store:
-        store.add_dep(from_id, to_id, dep_type=dep_type)
+        dep = store.add_dep(from_id, to_id, dep_type=dep_type)
 
     if state.get("json"):
-        typer.echo(json.dumps({"from_id": str(from_id), "to_id": str(to_id), "dep_type": dep_type}))
+        typer.echo(dep.model_dump_json())
     else:
-        typer.echo(f"{from_id} {dep_type} {to_id}")
+        typer.echo(f"{dep.from_id} {dep.dep_type} {dep.to_id}")
 
 
 @dep_app.command("remove")

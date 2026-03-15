@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, Dep
 from beans.store import BeanStore
 
 
@@ -29,20 +29,25 @@ class TestBeanStoreAddDep:
         a, b = two_beans
         store.add_dep(a.id, b.id)
 
-        assert store.list_deps(a.id) == [(a.id, b.id, "blocks")]
+        assert store.list_deps(a.id) == [Dep(from_id=a.id, to_id=b.id)]
+
+    def test_add_dep_returns_dep(self, store, two_beans):
+        a, b = two_beans
+        dep = store.add_dep(a.id, b.id)
+
+        assert dep == Dep(from_id=a.id, to_id=b.id)
 
     def test_add_dep_default_type_is_blocks(self, store, two_beans):
         a, b = two_beans
-        store.add_dep(a.id, b.id)
+        dep = store.add_dep(a.id, b.id)
 
-        deps = store.list_deps(a.id)
-        assert deps[0][2] == "blocks"
+        assert dep.dep_type == "blocks"
 
     def test_add_dep_custom_type(self, store, two_beans):
         a, b = two_beans
         store.add_dep(a.id, b.id, dep_type="relates")
 
-        assert store.list_deps(a.id) == [(a.id, b.id, "relates")]
+        assert store.list_deps(a.id) == [Dep(from_id=a.id, to_id=b.id, dep_type="relates")]
 
     def test_list_deps_empty(self, store, two_beans):
         a, _ = two_beans
@@ -57,8 +62,8 @@ class TestBeanStoreAddDep:
         store.add_dep(a.id, c.id)
 
         assert set(store.list_deps(a.id)) == {
-            (a.id, b.id, "blocks"),
-            (a.id, c.id, "blocks"),
+            Dep(from_id=a.id, to_id=b.id),
+            Dep(from_id=a.id, to_id=c.id),
         }
 
     def test_list_deps_only_returns_from_bean(self, store):
@@ -69,7 +74,7 @@ class TestBeanStoreAddDep:
         store.add_dep(a.id, b.id)
         store.add_dep(c.id, b.id)
 
-        assert store.list_deps(a.id) == [(a.id, b.id, "blocks")]
+        assert store.list_deps(a.id) == [Dep(from_id=a.id, to_id=b.id)]
 
 
 class TestBeanStoreRemoveDep:

@@ -2,7 +2,7 @@
 import sqlite3
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -124,19 +124,22 @@ class BeanStore:
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
 
-    def add_dep(self, from_id, to_id, dep_type="blocks"):
+    def add_dep(self, from_id, to_id, dep_type="blocks") -> Dep:
+        dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
         with self.conn:
             self.conn.execute(
                 "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
-                (from_id, to_id, dep_type),
+                (dep.from_id, dep.to_id, dep.dep_type),
             )
+        return dep
 
-    def list_deps(self, from_id) -> list[tuple]:
+    def list_deps(self, from_id) -> list[Dep]:
         cursor = self.conn.execute(
             "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
             (from_id,),
         )
-        return cursor.fetchall()
+        cols = columns(cursor)
+        return [Dep(**row(cols, values)) for values in cursor.fetchall()]
 
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""

@@ -37,6 +37,12 @@ class BeanId(str):
         return cls(prefix + fn())
 
 
+class Dep(BaseModel, frozen=True):
+    from_id: BeanId
+    to_id: BeanId
+    dep_type: str = "blocks"
+
+
 class Bean(BaseModel):
     id: BeanId = Field(default_factory=BeanId.generate)
     title: str
