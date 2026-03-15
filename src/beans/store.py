@@ -72,8 +72,5 @@ class BeanStore:
 
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
-        return [self._row_to_bean(columns(cursor), row) for row in cursor.fetchall()]
-
-    @staticmethod
-    def _row_to_bean(cols: list[str], values: tuple) -> Bean:
-        return Bean(**row(cols, values))
+        cols = columns(cursor)
+        return [Bean(**row(cols, values)) for values in cursor.fetchall()]
