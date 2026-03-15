@@ -33,6 +33,14 @@ def format_bean(bean: Bean) -> str:
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
 
 
+def resolve_id(store: BeanStore, prefix: str) -> str:
+    try:
+        return store.resolve_id(prefix)
+    except (KeyError, ValueError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+
+
 def get_store() -> BeanStore:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
     return BeanStore.from_path(db_path)
@@ -55,11 +63,8 @@ def create(title: str):
 def show(bean_id: str):
     """Show a single bean by id."""
     with get_store() as store:
+        bean_id = resolve_id(store, bean_id)
         bean = store.get_bean(bean_id)
-
-    if bean is None:
-        typer.echo(f"Bean not found: {bean_id}", err=True)
-        raise typer.Exit(code=1)
 
     if state.get("json"):
         typer.echo(bean.model_dump_json())
@@ -87,11 +92,8 @@ def update(
         fields["body"] = body
 
     with get_store() as store:
+        bean_id = resolve_id(store, bean_id)
         bean = store.update_bean(bean_id, fields)
-
-    if bean is None:
-        typer.echo(f"Bean not found: {bean_id}", err=True)
-        raise typer.Exit(code=1)
 
     if state.get("json"):
         typer.echo(bean.model_dump_json())
@@ -103,11 +105,8 @@ def update(
 def close(bean_id: str):
     """Close a bean (set status=closed and closed_at)."""
     with get_store() as store:
+        bean_id = resolve_id(store, bean_id)
         bean = store.close_bean(bean_id)
-
-    if bean is None:
-        typer.echo(f"Bean not found: {bean_id}", err=True)
-        raise typer.Exit(code=1)
 
     if state.get("json"):
         typer.echo(bean.model_dump_json())
@@ -119,11 +118,8 @@ def close(bean_id: str):
 def delete(bean_id: str):
     """Delete a bean."""
     with get_store() as store:
-        deleted = store.delete_bean(bean_id)
-
-    if not deleted:
-        typer.echo(f"Bean not found: {bean_id}", err=True)
-        raise typer.Exit(code=1)
+        bean_id = resolve_id(store, bean_id)
+        store.delete_bean(bean_id)
 
     typer.echo(f"Deleted {bean_id}")
 

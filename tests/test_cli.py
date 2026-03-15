@@ -157,3 +157,45 @@ class TestDeleteCommand:
     def test_delete_nonexistent_bean(self, runner, dbfile):
         result = runner.invoke(app, ["--db", dbfile, "delete", "bean-00000000"])
         assert result.exit_code != 0
+
+
+class TestPrefixMatching:
+    """Commands accept id prefixes."""
+
+    def test_show_with_prefix(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+        prefix = bean_id[:9]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "show", prefix])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["id"] == bean_id
+
+    def test_update_with_prefix(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+        prefix = bean_id[:9]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "update", prefix, "--title", "Updated"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["title"] == "Updated"
+
+    def test_close_with_prefix(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+        prefix = bean_id[:9]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "close", prefix])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "closed"
+
+    def test_delete_with_prefix(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+        prefix = bean_id[:9]
+
+        result = runner.invoke(app, ["--db", dbfile, "delete", prefix])
+        assert result.exit_code == 0

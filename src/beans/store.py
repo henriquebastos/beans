@@ -80,6 +80,15 @@ class BeanStore:
         self.conn.commit()
         return bean
 
+    def resolve_id(self, prefix: str) -> str:
+        cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (prefix + "%",))
+        matches = cursor.fetchall()
+        if len(matches) == 0:
+            raise KeyError(f"Bean not found: {prefix}")
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous prefix: {prefix}")
+        return matches[0][0]
+
     def get_bean(self, bean_id: str) -> Bean | None:
         cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
         r = cursor.fetchone()
