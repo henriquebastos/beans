@@ -34,9 +34,9 @@ def format_bean(bean: Bean) -> str:
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
 
 
-def resolve_id(store: BeanStore, prefix: str) -> str:
+def resolve_id(store: BeanStore, bean_id: str) -> str:
     try:
-        return store.resolve_id(prefix)
+        return store.resolve_id(bean_id)
     except (KeyError, ValueError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(code=1) from e
