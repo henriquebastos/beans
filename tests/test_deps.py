@@ -6,87 +6,87 @@ import pytest
 
 # Internal imports
 from beans.models import Bean, Dep
-from beans.store import BeanStore
+from beans.store import MainStore
 
 
 @pytest.fixture()
-def store():
-    with BeanStore(sqlite3.connect(":memory:")) as s:
+def main():
+    with MainStore(sqlite3.connect(":memory:")) as s:
         yield s
 
 
 @pytest.fixture()
-def two_beans(store):
-    a = store.create(Bean(title="Task A"))
-    b = store.create(Bean(title="Task B"))
+def two_beans(main):
+    a = main.bean.create(Bean(title="Task A"))
+    b = main.bean.create(Bean(title="Task B"))
     return a, b
 
 
-class TestBeanStoreAddDep:
-    """BeanStore can store dependency edges between beans."""
+class TestDepStoreAdd:
+    """DepStore can store dependency edges between beans."""
 
-    def test_add_dep_and_list_deps(self, store, two_beans):
+    def test_add_and_list(self, main, two_beans):
         a, b = two_beans
-        store.add_dep(a.id, b.id)
+        main.dep.add(a.id, b.id)
 
-        assert store.list_deps(a.id) == [Dep(from_id=a.id, to_id=b.id)]
+        assert main.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id)]
 
-    def test_add_dep_returns_dep(self, store, two_beans):
+    def test_add_returns_dep(self, main, two_beans):
         a, b = two_beans
-        dep = store.add_dep(a.id, b.id)
+        dep = main.dep.add(a.id, b.id)
 
         assert dep == Dep(from_id=a.id, to_id=b.id)
 
-    def test_add_dep_default_type_is_blocks(self, store, two_beans):
+    def test_add_default_type_is_blocks(self, main, two_beans):
         a, b = two_beans
-        dep = store.add_dep(a.id, b.id)
+        dep = main.dep.add(a.id, b.id)
 
         assert dep.dep_type == "blocks"
 
-    def test_add_dep_custom_type(self, store, two_beans):
+    def test_add_custom_type(self, main, two_beans):
         a, b = two_beans
-        store.add_dep(a.id, b.id, dep_type="relates")
+        main.dep.add(a.id, b.id, dep_type="relates")
 
-        assert store.list_deps(a.id) == [Dep(from_id=a.id, to_id=b.id, dep_type="relates")]
+        assert main.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id, dep_type="relates")]
 
-    def test_list_deps_empty(self, store, two_beans):
+    def test_list_empty(self, main, two_beans):
         a, _ = two_beans
-        assert store.list_deps(a.id) == []
+        assert main.dep.list(a.id) == []
 
-    def test_add_multiple_deps(self, store):
-        a = store.create(Bean(title="Task A"))
-        b = store.create(Bean(title="Task B"))
-        c = store.create(Bean(title="Task C"))
+    def test_add_multiple(self, main):
+        a = main.bean.create(Bean(title="Task A"))
+        b = main.bean.create(Bean(title="Task B"))
+        c = main.bean.create(Bean(title="Task C"))
 
-        store.add_dep(a.id, b.id)
-        store.add_dep(a.id, c.id)
+        main.dep.add(a.id, b.id)
+        main.dep.add(a.id, c.id)
 
-        assert set(store.list_deps(a.id)) == {
+        assert set(main.dep.list(a.id)) == {
             Dep(from_id=a.id, to_id=b.id),
             Dep(from_id=a.id, to_id=c.id),
         }
 
-    def test_list_deps_only_returns_from_bean(self, store):
-        a = store.create(Bean(title="Task A"))
-        b = store.create(Bean(title="Task B"))
-        c = store.create(Bean(title="Task C"))
+    def test_list_only_returns_from_bean(self, main):
+        a = main.bean.create(Bean(title="Task A"))
+        b = main.bean.create(Bean(title="Task B"))
+        c = main.bean.create(Bean(title="Task C"))
 
-        store.add_dep(a.id, b.id)
-        store.add_dep(c.id, b.id)
+        main.dep.add(a.id, b.id)
+        main.dep.add(c.id, b.id)
 
-        assert store.list_deps(a.id) == [Dep(from_id=a.id, to_id=b.id)]
+        assert main.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id)]
 
 
-class TestBeanStoreRemoveDep:
-    """BeanStore can remove dependency edges."""
+class TestDepStoreRemove:
+    """DepStore can remove dependency edges."""
 
-    def test_remove_dep(self, store, two_beans):
+    def test_remove(self, main, two_beans):
         a, b = two_beans
-        store.add_dep(a.id, b.id)
+        main.dep.add(a.id, b.id)
 
-        assert store.remove_dep(a.id, b.id) == 1
-        assert store.list_deps(a.id) == []
+        assert main.dep.remove(a.id, b.id) == 1
+        assert main.dep.list(a.id) == []
 
-    def test_remove_nonexistent_dep(self, store, two_beans):
+    def test_remove_nonexistent(self, main, two_beans):
         a, b = two_beans
-        assert store.remove_dep(a.id, b.id) == 0
+        assert main.dep.remove(a.id, b.id) == 0

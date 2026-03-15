@@ -44,17 +44,16 @@ CREATE TABLE IF NOT EXISTS deps (
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
 
 
-class BeanStore:
+class Store:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
-        self.init_db(conn)
 
     @staticmethod
     def init_db(conn: sqlite3.Connection, schema: str = SCHEMA):
         conn.executescript(schema)
 
     @classmethod
-    def from_path(cls, db_path: str) -> BeanStore:
+    def from_path(cls, db_path: str) -> Store:
         return cls(sqlite3.connect(db_path))
 
     def close(self):
@@ -66,6 +65,8 @@ class BeanStore:
     def __exit__(self, *args):
         self.close()
 
+
+class BeanStore(Store):
     def create(self, bean: Bean) -> Bean:
         with self.conn:
             self.conn.execute(
@@ -124,23 +125,6 @@ class BeanStore:
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
 
-    def add_dep(self, from_id, to_id, dep_type="blocks") -> Dep:
-        dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
-        with self.conn:
-            self.conn.execute(
-                "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
-                (dep.from_id, dep.to_id, dep.dep_type),
-            )
-        return dep
-
-    def list_deps(self, from_id) -> list[Dep]:
-        cursor = self.conn.execute(
-            "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
-            (from_id,),
-        )
-        cols = columns(cursor)
-        return [Dep(**row(cols, values)) for values in cursor.fetchall()]
-
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
             WITH RECURSIVE
@@ -167,10 +151,37 @@ class BeanStore:
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
 
-    def remove_dep(self, from_id, to_id) -> int:
+
+class DepStore(Store):
+    def add(self, from_id, to_id, dep_type="blocks") -> Dep:
+        dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
+                (dep.from_id, dep.to_id, dep.dep_type),
+            )
+        return dep
+
+    def list(self, from_id) -> list[Dep]:
+        cursor = self.conn.execute(
+            "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
+            (from_id,),
+        )
+        cols = columns(cursor)
+        return [Dep(**row(cols, values)) for values in cursor.fetchall()]
+
+    def remove(self, from_id, to_id) -> int:
         with self.conn:
             cursor = self.conn.execute(
                 "DELETE FROM deps WHERE from_id = ? AND to_id = ?",
                 (from_id, to_id),
             )
         return cursor.rowcount
+
+
+class MainStore(Store):
+    def __init__(self, conn: sqlite3.Connection):
+        super().__init__(conn)
+        self.init_db(conn)
+        self.bean = BeanStore(conn)
+        self.dep = DepStore(conn)

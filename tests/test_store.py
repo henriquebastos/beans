@@ -6,13 +6,18 @@ import pytest
 
 # Internal imports
 from beans.models import Bean, BeanId, BeanNotFoundError
-from beans.store import BeanStore
+from beans.store import MainStore
 
 
 @pytest.fixture()
-def store():
-    with BeanStore(sqlite3.connect(":memory:")) as s:
+def main():
+    with MainStore(sqlite3.connect(":memory:")) as s:
         yield s
+
+
+@pytest.fixture()
+def store(main):
+    return main.bean
 
 
 class TestBeanStoreCreateAndList:
@@ -132,40 +137,40 @@ class TestBeanStoreReady:
 
         assert store.ready() == [a, b]
 
-    def test_blocked_bean_excluded(self, store):
-        a = store.create(Bean(title="Task A"))
-        b = store.create(Bean(title="Task B"))
-        store.add_dep(a.id, b.id)
+    def test_blocked_bean_excluded(self, main):
+        a = main.bean.create(Bean(title="Task A"))
+        b = main.bean.create(Bean(title="Task B"))
+        main.dep.add(a.id, b.id)
 
-        assert store.ready() == [a]
+        assert main.bean.ready() == [a]
 
-    def test_transitive_blocking_excluded(self, store):
-        a = store.create(Bean(title="Task A"))
-        b = store.create(Bean(title="Task B"))
-        c = store.create(Bean(title="Task C"))
-        store.add_dep(a.id, b.id)
-        store.add_dep(b.id, c.id)
+    def test_transitive_blocking_excluded(self, main):
+        a = main.bean.create(Bean(title="Task A"))
+        b = main.bean.create(Bean(title="Task B"))
+        c = main.bean.create(Bean(title="Task C"))
+        main.dep.add(a.id, b.id)
+        main.dep.add(b.id, c.id)
 
-        assert store.ready() == [a]
+        assert main.bean.ready() == [a]
 
-    def test_closed_blocker_does_not_block(self, store):
-        a = store.create(Bean(title="Task A", status="closed"))
-        b = store.create(Bean(title="Task B"))
-        store.add_dep(a.id, b.id)
+    def test_closed_blocker_does_not_block(self, main):
+        a = main.bean.create(Bean(title="Task A", status="closed"))
+        b = main.bean.create(Bean(title="Task B"))
+        main.dep.add(a.id, b.id)
 
-        assert store.ready() == [a, b]
+        assert main.bean.ready() == [a, b]
 
     def test_ready_empty_store(self, store):
         assert store.ready() == []
 
-    def test_chain_one_closed_unblocks_next(self, store):
-        a = store.create(Bean(title="Task A", status="closed"))
-        b = store.create(Bean(title="Task B"))
-        c = store.create(Bean(title="Task C"))
-        store.add_dep(a.id, b.id)
-        store.add_dep(b.id, c.id)
+    def test_chain_one_closed_unblocks_next(self, main):
+        a = main.bean.create(Bean(title="Task A", status="closed"))
+        b = main.bean.create(Bean(title="Task B"))
+        c = main.bean.create(Bean(title="Task C"))
+        main.dep.add(a.id, b.id)
+        main.dep.add(b.id, c.id)
 
-        assert store.ready() == [a, b]
+        assert main.bean.ready() == [a, b]
 
     def test_parent_with_open_children_not_ready(self, store):
         parent = store.create(Bean(title="Parent"))

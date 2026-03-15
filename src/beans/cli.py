@@ -8,7 +8,7 @@ import typer
 
 # Internal imports
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep
-from beans.store import BeanStore
+from beans.store import MainStore
 
 app = typer.Typer()
 dep_app = typer.Typer()
@@ -54,9 +54,9 @@ def error(e: Exception):
     raise typer.Exit(code=1) from e
 
 
-def get_store() -> BeanStore:
+def get_store() -> MainStore:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
-    return BeanStore.from_path(db_path)
+    return MainStore.from_path(db_path)
 
 
 @app.command()
@@ -67,7 +67,7 @@ def create(
     """Create a new bean."""
     bean = Bean(title=title, parent_id=parent)
     with get_store() as store:
-        store.create(bean)
+        store.bean.create(bean)
 
     typer.echo(output(bean, state["json"]))
 
@@ -77,7 +77,7 @@ def show(bean_id: BeanIdArg):
     """Show a single bean by id."""
     try:
         with get_store() as store:
-            bean = store.get(bean_id)
+            bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
         error(e)
 
@@ -103,9 +103,9 @@ def update(
 
     try:
         with get_store() as store:
-            if store.update(bean_id, **fields) == 0:
+            if store.bean.update(bean_id, **fields) == 0:
                 raise BeanNotFoundError(bean_id)
-            bean = store.get(bean_id)
+            bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
         error(e)
 
@@ -117,8 +117,8 @@ def close(bean_id: BeanIdArg):
     """Close a bean (set status=closed and closed_at)."""
     try:
         with get_store() as store:
-            store.update(bean_id, status="closed", closed_at=datetime.now(UTC).isoformat())
-            bean = store.get(bean_id)
+            store.bean.update(bean_id, status="closed", closed_at=datetime.now(UTC).isoformat())
+            bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
         error(e)
 
@@ -129,7 +129,7 @@ def close(bean_id: BeanIdArg):
 def delete(bean_id: BeanIdArg):
     """Delete a bean."""
     with get_store() as store:
-        if store.delete(bean_id) == 0:
+        if store.bean.delete(bean_id) == 0:
             error(BeanNotFoundError(bean_id))
 
     if not state["json"]:
@@ -140,7 +140,7 @@ def delete(bean_id: BeanIdArg):
 def list_beans():
     """List all beans."""
     with get_store() as store:
-        beans = store.list()
+        beans = store.bean.list()
 
     typer.echo(output(beans, state["json"]))
 
@@ -149,7 +149,7 @@ def list_beans():
 def ready():
     """List only unblocked beans."""
     with get_store() as store:
-        beans = store.ready()
+        beans = store.bean.ready()
 
     typer.echo(output(beans, state["json"]))
 
@@ -162,7 +162,7 @@ def dep_add(
 ):
     """Add a dependency between two beans."""
     with get_store() as store:
-        dep = store.add_dep(from_id, to_id, dep_type=dep_type)
+        dep = store.dep.add(from_id, to_id, dep_type=dep_type)
 
     typer.echo(output(dep, state["json"]))
 
@@ -171,7 +171,7 @@ def dep_add(
 def dep_remove(from_id: BeanIdArg, to_id: BeanIdArg):
     """Remove a dependency between two beans."""
     with get_store() as store:
-        if store.remove_dep(from_id, to_id) == 0:
+        if store.dep.remove(from_id, to_id) == 0:
             error(BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
 
     if not state["json"]:
