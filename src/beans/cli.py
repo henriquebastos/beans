@@ -29,6 +29,10 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 
 
+def format_bean(bean: Bean) -> str:
+    return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
+
+
 def get_store() -> BeanStore:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
     return BeanStore.from_path(db_path)
@@ -44,7 +48,7 @@ def create(title: str):
     if state.get("json"):
         typer.echo(bean.model_dump_json())
     else:
-        typer.echo(f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}")
+        typer.echo(format_bean(bean))
 
 
 @app.command("list")
@@ -57,4 +61,4 @@ def list_beans():
         typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
     else:
         for bean in beans:
-            typer.echo(f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}")
+            typer.echo(format_bean(bean))
