@@ -14,6 +14,11 @@ def row(cols: list[str], values: tuple) -> dict:
     return dict(zip(cols, values))
 
 
+def rows(cursor: sqlite3.Cursor):
+    cols = columns(cursor)
+    return (row(cols, values) for values in cursor.fetchall())
+
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -89,8 +94,7 @@ class BeanStore(BaseStore):
         if match is None:
             raise BeanNotFoundError(bean_id)
 
-        cols = columns(cursor)
-        return Bean(**row(cols, match))
+        return Bean(**row(columns(cursor), match))
 
     def update(self, bean_id, **fields) -> int:
         if not fields:
@@ -113,8 +117,7 @@ class BeanStore(BaseStore):
 
     def list(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
-        cols = columns(cursor)
-        return [Bean(**row(cols, values)) for values in cursor.fetchall()]
+        return [Bean(**r) for r in rows(cursor)]
 
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
@@ -139,8 +142,7 @@ class BeanStore(BaseStore):
             WHERE id NOT IN (SELECT id FROM blocked_by_deps)
               AND id NOT IN (SELECT id FROM blocked_by_children)
         """)
-        cols = columns(cursor)
-        return [Bean(**row(cols, values)) for values in cursor.fetchall()]
+        return [Bean(**r) for r in rows(cursor)]
 
 
 class DepStore(BaseStore):
@@ -158,8 +160,7 @@ class DepStore(BaseStore):
             "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
             (from_id,),
         )
-        cols = columns(cursor)
-        return [Dep(**row(cols, values)) for values in cursor.fetchall()]
+        return [Dep(**r) for r in rows(cursor)]
 
     def remove(self, from_id, to_id) -> int:
         with self.conn:
