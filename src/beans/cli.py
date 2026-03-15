@@ -1,0 +1,57 @@
+# Python imports
+import json
+from typing import Annotated
+
+# Pip imports
+import typer
+
+# Internal imports
+from beans.models import Bean
+from beans.store import BeanStore
+
+app = typer.Typer()
+
+# Global state shared across commands
+_state: dict = {}
+
+
+@app.callback()
+def main(
+    db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+):
+    _state["db"] = db
+    _state["json"] = json_output
+
+
+def _get_store() -> BeanStore:
+    db_path = _state.get("db") or "beans.db"
+    return BeanStore(db_path)
+
+
+@app.command()
+def create(title: str):
+    """Create a new bean."""
+    store = _get_store()
+    bean = Bean(title=title)
+    store.create_bean(bean)
+    store.close()
+
+    if _state.get("json"):
+        typer.echo(bean.model_dump_json())
+    else:
+        typer.echo(f"{bean.id}  {bean.title}")
+
+
+@app.command("list")
+def list_beans():
+    """List all beans."""
+    store = _get_store()
+    beans = store.list_beans()
+    store.close()
+
+    if _state.get("json"):
+        typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
+    else:
+        for bean in beans:
+            typer.echo(f"{bean.id}  {bean.title}")

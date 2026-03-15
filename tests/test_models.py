@@ -1,6 +1,6 @@
 # Python imports
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 
 # Pip imports
 import pytest

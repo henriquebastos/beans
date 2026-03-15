@@ -1,7 +1,7 @@
 # Python imports
+import datetime
 import json
 import sqlite3
-from datetime import datetime, timezone
 
 # Internal imports
 from beans.models import Bean
@@ -36,7 +36,8 @@ class BeanStore:
 
     def create_bean(self, bean: Bean) -> Bean:
         self.conn.execute(
-            """INSERT INTO beans (id, title, type, status, priority, body, labels, parent_id, assignee, created_by, ref_id, created_at)
+            """INSERT INTO beans
+            (id, title, type, status, priority, body, labels, parent_id, assignee, created_by, ref_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 bean.id,
@@ -64,6 +65,6 @@ class BeanStore:
         for row in rows:
             data = dict(zip(columns, row))
             data["labels"] = json.loads(data["labels"])
-            data["created_at"] = datetime.fromisoformat(data["created_at"])
+            data["created_at"] = datetime.datetime.fromisoformat(data["created_at"])
             beans.append(Bean(**data))
         return beans

@@ -1,6 +1,6 @@
 # Python imports
+import datetime
 import secrets
-from datetime import datetime, timezone
 from typing import Literal
 
 # Pip imports
@@ -23,4 +23,4 @@ class Bean(BaseModel):
     assignee: str | None = None
     created_by: str | None = None
     ref_id: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
