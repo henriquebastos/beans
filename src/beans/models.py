@@ -7,10 +7,11 @@ from typing import Literal
 # Pip imports
 from pydantic import BaseModel, Field
 
+ID_PREFIX = "bean-"
 ID_BYTES = 4
 
 
-def generate_id(prefix="bean-", fn=partial(secrets.token_hex, ID_BYTES)) -> str:
+def generate_id(prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> str:
     return prefix + fn()
 
 
