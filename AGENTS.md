@@ -228,6 +228,28 @@ uv run pytest
 uv run ruff check src/ tests/
 ```
 
+## Releasing
+
+1. Bump the version in `pyproject.toml`
+2. Generate changelog:
+   ```bash
+   uv run git-cliff --tag v<VERSION> -o CHANGELOG.md
+   ```
+3. Commit and tag:
+   ```bash
+   git add pyproject.toml CHANGELOG.md
+   git commit -m "chore: bump version to <VERSION>"
+   git tag v<VERSION>
+   git push origin main --tags
+   ```
+4. Create a GitHub Release:
+   ```bash
+   gh release create v<VERSION> --generate-notes
+   ```
+
+The release workflow runs tests, publishes to PyPI, and updates the Homebrew formula.
+The package is `magic-beans` on PyPI, but the CLI is `beans` and the import is `import beans`.
+
 ## Tools
 
 - **uv** — package management, running, building
