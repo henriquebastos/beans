@@ -76,3 +76,27 @@ class TestReady:
         ]
 
         assert ready([a, b, c], deps) == [a, b]
+
+    def test_parent_with_open_children_not_ready(self):
+        from beans.graph import ready
+
+        parent = make_bean("p")
+        child = make_bean("c")
+        child.parent_id = parent.id
+
+        assert ready([parent, child], []) == [child]
+
+    def test_parent_with_closed_children_is_ready(self):
+        from beans.graph import ready
+
+        parent = make_bean("p")
+        child = make_bean("c", status="closed")
+        child.parent_id = parent.id
+
+        assert ready([parent, child], []) == [parent, child]
+
+    def test_parent_with_no_children_is_ready(self):
+        from beans.graph import ready
+
+        parent = make_bean("p")
+        assert ready([parent], []) == [parent]
