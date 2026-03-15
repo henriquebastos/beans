@@ -1,6 +1,6 @@
 [project]
 name = "magic-beans"
-version = "0.1.1"
+version = "0.4.0"
 description = "Graph-based issue tracker for AI agent coordination"
 readme = "README.md"
 license = "MIT"
