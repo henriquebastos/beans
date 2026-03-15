@@ -2,7 +2,7 @@
 import datetime
 import secrets
 from functools import partial
-from typing import Callable, Literal
+from typing import Literal
 
 # Pip imports
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 ID_BYTES = 4
 
 
-def generate_id(prefix: str = "bean-", fn: Callable[[], str] = partial(secrets.token_hex, ID_BYTES)) -> str:
+def generate_id(prefix="bean-", fn=partial(secrets.token_hex, ID_BYTES)):
     return prefix + fn()
 
 
