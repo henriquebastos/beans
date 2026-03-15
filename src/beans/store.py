@@ -61,26 +61,27 @@ class BeanStore:
         self.close()
 
     def create_bean(self, bean: Bean) -> Bean:
-        self.conn.execute(
-            """INSERT INTO beans
-            (id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at, closed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                bean.id,
-                bean.title,
-                bean.type,
-                bean.status,
-                bean.priority,
-                bean.body,
-                bean.parent_id,
-                bean.assignee,
-                bean.created_by,
-                bean.ref_id,
-                bean.created_at.isoformat(),
-                bean.closed_at.isoformat() if bean.closed_at else None,
-            ),
-        )
-        self.conn.commit()
+        with self.conn:
+            self.conn.execute(
+                """INSERT INTO beans
+                (id, title, type, status, priority, body,
+                parent_id, assignee, created_by, ref_id, created_at, closed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    bean.id,
+                    bean.title,
+                    bean.type,
+                    bean.status,
+                    bean.priority,
+                    bean.body,
+                    bean.parent_id,
+                    bean.assignee,
+                    bean.created_by,
+                    bean.ref_id,
+                    bean.created_at.isoformat(),
+                    bean.closed_at.isoformat() if bean.closed_at else None,
+                ),
+            )
         return bean
 
     def get_bean(self, bean_id) -> Bean:
@@ -107,13 +108,13 @@ class BeanStore:
         Bean.model_validate({"id": bean.id, "title": "validate", **fields})
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = [*fields.values(), bean.id]
-        self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
-        self.conn.commit()
+        with self.conn:
+            self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
         return self.get_bean(bean.id)
 
     def delete_bean(self, bean_id):
-        cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
-        self.conn.commit()
+        with self.conn:
+            cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
         if cursor.rowcount == 0:
             raise BeanNotFoundError(bean_id)
 
