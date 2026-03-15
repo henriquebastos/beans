@@ -159,6 +159,40 @@ class TestDeleteCommand:
         assert result.exit_code != 0
 
 
+class TestReadyCommand:
+    """'beans ready' lists only unblocked beans."""
+
+    def test_ready_no_deps(self, runner, dbfile):
+        runner.invoke(app, ["--db", dbfile, "create", "Task A"])
+        runner.invoke(app, ["--db", dbfile, "create", "Task B"])
+
+        result = runner.invoke(app, ["--db", dbfile, "ready"])
+        assert result.exit_code == 0
+        assert "Task A" in result.output
+        assert "Task B" in result.output
+
+    def test_ready_excludes_blocked(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+        runner.invoke(app, ["--db", dbfile, "dep", "add", a["id"], b["id"]])
+
+        result = runner.invoke(app, ["--db", dbfile, "ready"])
+        assert result.exit_code == 0
+        assert "Task A" in result.output
+        assert "Task B" not in result.output
+
+    def test_ready_json_flag(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+        runner.invoke(app, ["--db", dbfile, "dep", "add", a["id"], b["id"]])
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "ready"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["title"] == "Task A"
+
+
 class TestDepAddCommand:
     """'beans dep add' adds a dependency between two beans."""
 

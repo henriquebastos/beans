@@ -135,6 +135,19 @@ def list_beans():
             typer.echo(line(bean))
 
 
+@app.command()
+def ready():
+    """List only unblocked beans."""
+    with get_store() as store:
+        beans = store.ready()
+
+    if state.get("json"):
+        typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
+    else:
+        for bean in beans:
+            typer.echo(line(bean))
+
+
 @dep_app.command("add")
 def dep_add(
     from_id: BeanIdArg,
