@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import sqlite3
 
 # Internal imports
-from beans.models import ID_PREFIX, Bean
+from beans.models import Bean, BeanId
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -84,8 +84,7 @@ class BeanStore:
         return bean
 
     def resolve_id(self, bean_id: str) -> str:
-        if not bean_id.startswith(ID_PREFIX):
-            raise ValueError(f"Invalid bean id: {bean_id}")
+        BeanId(bean_id)
         cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (bean_id + "%",))
         matches = cursor.fetchall()
         if len(matches) == 0:
