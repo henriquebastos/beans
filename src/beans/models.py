@@ -1,18 +1,19 @@
 # Python imports
 import datetime
 import secrets
-from typing import Literal
+from functools import partial
+from typing import Callable, Literal
 
 # Pip imports
 from pydantic import BaseModel, Field
 
 
-def generate_bean_id() -> str:
-    return "bean-" + secrets.token_hex(4)
+def generate_id(prefix: str = "bean-", fn: Callable[[], str] = partial(secrets.token_hex, 4)) -> str:
+    return prefix + fn()
 
 
 class Bean(BaseModel):
-    id: str = Field(default_factory=generate_bean_id)
+    id: str = Field(default_factory=generate_id)
     title: str
     type: str = "task"
     status: Literal["open", "in_progress", "closed"] = "open"
