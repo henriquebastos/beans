@@ -44,6 +44,34 @@ CREATE TABLE IF NOT EXISTS deps (
     dep_type TEXT NOT NULL DEFAULT 'blocks',
     PRIMARY KEY (from_id, to_id)
 );
+
+CREATE TABLE IF NOT EXISTS journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    bean_id TEXT NOT NULL,
+    snapshot TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TRIGGER IF NOT EXISTS journal_after_insert
+AFTER INSERT ON beans
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('create', NEW.id, json_object(
+        'id', NEW.id,
+        'title', NEW.title,
+        'type', NEW.type,
+        'status', NEW.status,
+        'priority', NEW.priority,
+        'body', NEW.body,
+        'parent_id', NEW.parent_id,
+        'assignee', NEW.assignee,
+        'created_by', NEW.created_by,
+        'ref_id', NEW.ref_id,
+        'created_at', NEW.created_at,
+        'closed_at', NEW.closed_at
+    ));
+END;
 """
 
 
