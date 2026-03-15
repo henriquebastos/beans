@@ -224,7 +224,7 @@ class Store(BaseStore):
 
     def close(self):
         if self.dry_run:
-            self.bean.conn.rollback()
+            self.conn.rollback()
         self.conn.close()
 
     def __enter__(self):
