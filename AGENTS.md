@@ -62,6 +62,21 @@ def local_timestamp(dt, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 ```
 
+### `**kwargs` over dict for named fields
+
+When a function accepts a set of named fields, use `**kwargs` instead of a dict parameter.
+It reads better at the call site and lets the interpreter catch typos.
+
+```python
+# Yes
+def update(self, bean_id, **fields) -> int: ...
+store.update(bean_id, title="New title", status="closed")
+
+# No
+def update(self, bean_id, fields: dict) -> int: ...
+store.update(bean_id, {"title": "New title", "status": "closed"})
+```
+
 ### Constants for magic values
 
 ```python
