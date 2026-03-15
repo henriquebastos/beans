@@ -186,7 +186,7 @@ class TestBeanStoreDeleteBean:
 
 
 class TestBeanStorePrefixMatch:
-    """BeanStore resolves id prefixes to full ids."""
+    """BeanStore resolves id prefixes to full beans."""
 
     @pytest.fixture()
     def store(self):
@@ -197,33 +197,33 @@ class TestBeanStorePrefixMatch:
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
         store.create_bean(bean)
 
-        result = store.resolve_id("bean-aabbccdd")
-        assert result == "bean-aabbccdd"
+        result = store.get_bean("bean-aabbccdd")
+        assert result.id == "bean-aabbccdd"
 
     def test_prefix_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
         store.create_bean(bean)
 
-        result = store.resolve_id("bean-aabb")
-        assert result == "bean-aabbccdd"
+        result = store.get_bean("bean-aabb")
+        assert result.id == "bean-aabbccdd"
 
     def test_short_prefix_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
         store.create_bean(bean)
 
-        result = store.resolve_id("bean-aa")
-        assert result == "bean-aabbccdd"
+        result = store.get_bean("bean-aa")
+        assert result.id == "bean-aabbccdd"
 
     def test_ambiguous_prefix_raises(self, store):
         store.create_bean(Bean(id="bean-aabb0001", title="First"))
         store.create_bean(Bean(id="bean-aabb0002", title="Second"))
 
         with pytest.raises(ValueError, match="Ambiguous"):
-            store.resolve_id("bean-aabb")
+            store.get_bean("bean-aabb")
 
     def test_no_match_raises(self, store):
         with pytest.raises(KeyError, match="not found"):
-            store.resolve_id("bean-zzzzzzzz")
+            store.get_bean("bean-zzzzzzzz")
 
 
 class TestBeanStoreValidation:

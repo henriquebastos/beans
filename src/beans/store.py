@@ -83,42 +83,37 @@ class BeanStore:
         self.conn.commit()
         return bean
 
-    def resolve_id(self, bean_id) -> BeanId:
+    def get_bean(self, bean_id) -> Bean:
         bean_id = BeanId(bean_id)
-        cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (bean_id + "%",))
+        cursor = self.conn.execute("SELECT * FROM beans WHERE id LIKE ?", (bean_id + "%",))
+        cols = columns(cursor)
         matches = cursor.fetchall()
         if len(matches) == 0:
             raise KeyError(f"Bean not found: {bean_id}")
         if len(matches) > 1:
             raise ValueError(f"Ambiguous prefix: {bean_id}")
-        return BeanId(matches[0][0])
-
-    def get_bean(self, bean_id) -> Bean:
-        bean_id = self.resolve_id(bean_id)
-        cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
-        cols = columns(cursor)
-        return Bean(**row(cols, cursor.fetchone()))
+        return Bean(**row(cols, matches[0]))
 
     def close_bean(self, bean_id) -> Bean:
         return self.update_bean(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
 
     def update_bean(self, bean_id, fields: dict) -> Bean:
-        bean_id = self.resolve_id(bean_id)
+        bean = self.get_bean(bean_id)
         if not fields:
-            return self.get_bean(bean_id)
+            return bean
         for key in fields:
             if key not in UPDATABLE_FIELDS:
                 raise ValueError(f"Invalid field: {key}")
-        Bean.model_validate({"id": bean_id, "title": "validate", **fields})
+        Bean.model_validate({"id": bean.id, "title": "validate", **fields})
         set_clause = ", ".join(f"{k} = ?" for k in fields)
-        values = [*fields.values(), bean_id]
+        values = [*fields.values(), bean.id]
         self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
         self.conn.commit()
-        return self.get_bean(bean_id)
+        return self.get_bean(bean.id)
 
     def delete_bean(self, bean_id):
-        bean_id = self.resolve_id(bean_id)
-        self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
+        bean = self.get_bean(bean_id)
+        self.conn.execute("DELETE FROM beans WHERE id = ?", (bean.id,))
         self.conn.commit()
 
     def list_beans(self) -> list[Bean]:
