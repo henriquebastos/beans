@@ -67,6 +67,5 @@ jobs:
           formula-name: beans
           homebrew-tap: henriquebastos/homebrew-tap
           tag-name: ${{ github.event.release.tag_name }}
-          download-url: https://files.pythonhosted.org/packages/source/m/magic-beans/magic_beans-${{ github.event.release.tag_name }}.tar.gz
         env:
           COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
