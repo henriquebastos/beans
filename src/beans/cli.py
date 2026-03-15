@@ -12,6 +12,12 @@ from beans.models import Bean, BeanId
 from beans.store import BeanStore
 
 app = typer.Typer()
+
+
+def opt(type_, *args, **kwargs):
+    return Annotated[type_, typer.Option(*args, **kwargs)]
+
+
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
 # Global state shared across commands
@@ -20,8 +26,8 @@ state: dict = {}
 
 @app.callback()
 def main(
-    db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    db: opt(str | None, help="Path to SQLite database") = None,
+    json_output: opt(bool, "--json", help="Output as JSON") = False,
 ):
     state["db"] = db
     state["json"] = json_output
@@ -72,10 +78,10 @@ def show(bean_id: BeanIdArg):
 @app.command()
 def update(
     bean_id: BeanIdArg,
-    title: Annotated[str | None, typer.Option(help="New title")] = None,
-    status: Annotated[str | None, typer.Option(help="New status")] = None,
-    priority: Annotated[int | None, typer.Option(help="New priority")] = None,
-    body: Annotated[str | None, typer.Option(help="New body")] = None,
+    title: opt(str | None, help="New title") = None,
+    status: opt(str | None, help="New status") = None,
+    priority: opt(int | None, help="New priority") = None,
+    body: opt(str | None, help="New body") = None,
 ):
     """Update fields on a bean."""
     fields = {}
