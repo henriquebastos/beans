@@ -138,6 +138,24 @@ class BeanStore:
         )
         return cursor.fetchall()
 
+    def ready(self) -> list[Bean]:
+        cursor = self.conn.execute("""
+            WITH RECURSIVE blocked(id) AS (
+                SELECT d.to_id
+                FROM deps d
+                JOIN beans b ON d.from_id = b.id
+                WHERE d.dep_type = 'blocks' AND b.status != 'closed'
+                UNION
+                SELECT d.to_id
+                FROM deps d
+                JOIN blocked bl ON d.from_id = bl.id
+                WHERE d.dep_type = 'blocks'
+            )
+            SELECT * FROM beans WHERE id NOT IN (SELECT id FROM blocked)
+        """)
+        cols = columns(cursor)
+        return [Bean(**row(cols, values)) for values in cursor.fetchall()]
+
     def remove_dep(self, from_id, to_id) -> int:
         with self.conn:
             cursor = self.conn.execute(

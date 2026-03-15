@@ -123,6 +123,51 @@ class TestBeanStoreDeleteBean:
         assert store.delete(BeanId("bean-00000000")) == 0
 
 
+class TestBeanStoreReady:
+    """BeanStore.ready() returns only unblocked beans."""
+
+    def test_no_deps_all_ready(self, store):
+        a = store.create(Bean(title="Task A"))
+        b = store.create(Bean(title="Task B"))
+
+        assert store.ready() == [a, b]
+
+    def test_blocked_bean_excluded(self, store):
+        a = store.create(Bean(title="Task A"))
+        b = store.create(Bean(title="Task B"))
+        store.add_dep(a.id, b.id)
+
+        assert store.ready() == [a]
+
+    def test_transitive_blocking_excluded(self, store):
+        a = store.create(Bean(title="Task A"))
+        b = store.create(Bean(title="Task B"))
+        c = store.create(Bean(title="Task C"))
+        store.add_dep(a.id, b.id)
+        store.add_dep(b.id, c.id)
+
+        assert store.ready() == [a]
+
+    def test_closed_blocker_does_not_block(self, store):
+        a = store.create(Bean(title="Task A", status="closed"))
+        b = store.create(Bean(title="Task B"))
+        store.add_dep(a.id, b.id)
+
+        assert store.ready() == [a, b]
+
+    def test_ready_empty_store(self, store):
+        assert store.ready() == []
+
+    def test_chain_one_closed_unblocks_next(self, store):
+        a = store.create(Bean(title="Task A", status="closed"))
+        b = store.create(Bean(title="Task B"))
+        c = store.create(Bean(title="Task C"))
+        store.add_dep(a.id, b.id)
+        store.add_dep(b.id, c.id)
+
+        assert store.ready() == [a, b]
+
+
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
 

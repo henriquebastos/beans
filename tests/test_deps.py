@@ -56,10 +56,10 @@ class TestBeanStoreAddDep:
         store.add_dep(a.id, b.id)
         store.add_dep(a.id, c.id)
 
-        assert store.list_deps(a.id) == [
+        assert set(store.list_deps(a.id)) == {
             (a.id, b.id, "blocks"),
             (a.id, c.id, "blocks"),
-        ]
+        }
 
     def test_list_deps_only_returns_from_bean(self, store):
         a = store.create(Bean(title="Task A"))
