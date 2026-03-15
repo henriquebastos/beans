@@ -259,6 +259,21 @@ class TestReleaseCommand:
         exit_code, _ = invoke_agent("release", created["id"], "--actor", "bob")
         assert exit_code != 0
 
+    def test_release_mine(self, invoke_agent):
+        _, a = invoke_agent("create", "Task A")
+        _, b = invoke_agent("create", "Task B")
+        invoke_agent("claim", a["id"], "--actor", "alice")
+        invoke_agent("claim", b["id"], "--actor", "alice")
+
+        exit_code, data = invoke_agent("release", "--mine", "--actor", "alice")
+        assert exit_code == 0
+        assert len(data) == 2
+
+    def test_release_mine_empty(self, invoke_agent):
+        exit_code, data = invoke_agent("release", "--mine", "--actor", "alice")
+        assert exit_code == 0
+        assert data == []
+
 
 class TestHumanOutput:
     """Text-mode output works for human consumption."""

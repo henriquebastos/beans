@@ -242,6 +242,23 @@ class TestBeanStoreRelease:
         with pytest.raises(BeanNotFoundError):
             store.bean.release(BeanId("bean-00000000"), "alice")
 
+    def test_release_mine(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        store.bean.create(Bean(title="Task C"))
+        store.bean.claim(a.id, "alice")
+        store.bean.claim(b.id, "alice")
+
+        released = store.bean.release_mine("alice")
+        assert len(released) == 2
+        assert all(b.assignee is None for b in released)
+        assert all(b.status == "open" for b in released)
+
+    def test_release_mine_no_claims(self, store):
+        store.bean.create(Bean(title="Task A"))
+
+        assert store.bean.release_mine("alice") == []
+
 
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""

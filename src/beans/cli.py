@@ -160,17 +160,24 @@ def claim(
 
 @app.command()
 def release(
-    bean_id: BeanIdArg,
-    actor: Annotated[str, typer.Option(help="Who is releasing the bean")],
+    bean_id: Annotated[str | None, typer.Argument(parser=BeanId)] = None,
+    actor: Annotated[str, typer.Option(help="Who is releasing the bean")] = "",
+    mine: Annotated[bool, typer.Option("--mine", help="Release all beans claimed by actor")] = False,
 ):
     """Release a claimed bean (clear assignee, set status=open)."""
-    try:
+    if mine:
         with get_store() as store:
-            bean = store.bean.release(bean_id, actor)
-    except (BeanNotFoundError, ValueError) as e:
-        error(e)
-
-    typer.echo(output(bean, state["json"]))
+            beans = store.bean.release_mine(actor)
+        typer.echo(output(beans, state["json"]))
+    elif bean_id:
+        try:
+            with get_store() as store:
+                bean = store.bean.release(bean_id, actor)
+        except (BeanNotFoundError, ValueError) as e:
+            error(e)
+        typer.echo(output(bean, state["json"]))
+    else:
+        error(ValueError("Provide a bean id or --mine"))
 
 
 @app.command("list")

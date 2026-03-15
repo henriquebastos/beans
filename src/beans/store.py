@@ -137,6 +137,11 @@ class BeanStore(BaseStore):
         self.update(bean_id, assignee=None, status="open")
         return self.get(bean_id)
 
+    def release_mine(self, actor) -> list[Bean]:
+        cursor = self.conn.execute("SELECT id FROM beans WHERE assignee = ?", (actor,))
+        ids = [r[0] for r in cursor.fetchall()]
+        return [self.release(bean_id, actor) for bean_id in ids]
+
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
             WITH RECURSIVE
