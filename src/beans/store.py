@@ -31,6 +31,13 @@ CREATE TABLE IF NOT EXISTS beans (
     created_at TEXT NOT NULL,
     closed_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS deps (
+    from_id TEXT NOT NULL REFERENCES beans(id),
+    to_id TEXT NOT NULL REFERENCES beans(id),
+    dep_type TEXT NOT NULL DEFAULT 'blocks',
+    PRIMARY KEY (from_id, to_id)
+);
 """
 
 
@@ -116,3 +123,25 @@ class BeanStore:
         cursor = self.conn.execute("SELECT * FROM beans")
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
+
+    def add_dep(self, from_id, to_id, dep_type="blocks"):
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
+                (from_id, to_id, dep_type),
+            )
+
+    def list_deps(self, from_id) -> list[tuple]:
+        cursor = self.conn.execute(
+            "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
+            (from_id,),
+        )
+        return cursor.fetchall()
+
+    def remove_dep(self, from_id, to_id) -> int:
+        with self.conn:
+            cursor = self.conn.execute(
+                "DELETE FROM deps WHERE from_id = ? AND to_id = ?",
+                (from_id, to_id),
+            )
+        return cursor.rowcount
