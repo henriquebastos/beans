@@ -332,6 +332,24 @@ class TestDryRunMode:
         assert bean["assignee"] is None
 
 
+class TestSchemaCommand:
+    """'beans schema' outputs JSON schema for Bean model."""
+
+    def test_schema_outputs_valid_json(self, invoke_agent):
+        exit_code, data = invoke_agent("schema")
+        assert exit_code == 0
+        assert data["title"] == "Bean"
+        assert "properties" in data
+
+    def test_schema_includes_fields(self, invoke_agent):
+        exit_code, data = invoke_agent("schema")
+        assert exit_code == 0
+        props = data["properties"]
+        assert "id" in props
+        assert "title" in props
+        assert "status" in props
+
+
 class TestInputValidation:
     """Invalid inputs are rejected with clear errors."""
 

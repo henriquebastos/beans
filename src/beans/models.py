@@ -29,6 +29,10 @@ class BeanId(str):
         return core_schema.no_info_plain_validator_function(cls)
 
     @classmethod
+    def __get_pydantic_json_schema__(cls, schema, handler):
+        return {"type": "string", "pattern": f"^{ID_PREFIX}[0-9a-f]{{8}}$"}
+
+    @classmethod
     def generate(cls, prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
         return cls(prefix + fn())
 

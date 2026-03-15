@@ -1,5 +1,6 @@
 # Python imports
 from datetime import UTC, datetime
+import json
 from typing import Annotated
 
 # Pip imports
@@ -181,6 +182,12 @@ def ready():
         beans = store.bean.ready()
 
     typer.echo(output(beans, state["json"]))
+
+
+@app.command()
+def schema():
+    """Output JSON schema for the Bean model."""
+    typer.echo(json.dumps(Bean.model_json_schema()))
 
 
 @dep_app.command("add")
