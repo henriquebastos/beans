@@ -139,3 +139,21 @@ class TestCloseCommand:
     def test_close_nonexistent_bean(self, runner, dbfile):
         result = runner.invoke(app, ["--db", dbfile, "close", "bean-00000000"])
         assert result.exit_code != 0
+
+
+class TestDeleteCommand:
+    """'beans delete' deletes a bean."""
+
+    def test_delete_removes_bean(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "delete", bean_id])
+        assert result.exit_code == 0
+
+        result = runner.invoke(app, ["--db", dbfile, "show", bean_id])
+        assert result.exit_code != 0
+
+    def test_delete_nonexistent_bean(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "delete", "bean-00000000"])
+        assert result.exit_code != 0

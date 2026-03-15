@@ -100,6 +100,11 @@ class BeanStore:
         self.conn.commit()
         return self.get_bean(bean_id)
 
+    def delete_bean(self, bean_id: str) -> bool:
+        cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
+        self.conn.commit()
+        return cursor.rowcount > 0
+
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
         cols = columns(cursor)

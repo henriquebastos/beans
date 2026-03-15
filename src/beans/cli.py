@@ -115,6 +115,19 @@ def close(bean_id: str):
         typer.echo(format_bean(bean))
 
 
+@app.command()
+def delete(bean_id: str):
+    """Delete a bean."""
+    with get_store() as store:
+        deleted = store.delete_bean(bean_id)
+
+    if not deleted:
+        typer.echo(f"Bean not found: {bean_id}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Deleted {bean_id}")
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""

@@ -162,3 +162,24 @@ class TestBeanStoreCloseBean:
     def test_close_nonexistent_bean_returns_none(self, store):
         result = store.close_bean("bean-00000000")
         assert result is None
+
+
+class TestBeanStoreDeleteBean:
+    """BeanStore can delete a bean."""
+
+    @pytest.fixture()
+    def store(self):
+        with BeanStore(sqlite3.connect(":memory:")) as s:
+            yield s
+
+    def test_delete_removes_bean(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.delete_bean(bean.id)
+        assert result is True
+        assert store.get_bean(bean.id) is None
+
+    def test_delete_nonexistent_bean_returns_false(self, store):
+        result = store.delete_bean("bean-00000000")
+        assert result is False
