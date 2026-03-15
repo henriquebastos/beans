@@ -13,42 +13,22 @@ from beans.models import Bean
 class TestBeanDefaults:
     """A Bean created with only a title gets sensible defaults."""
 
-    @pytest.fixture()
-    def bean(self):
-        return Bean(title="Fix auth")
+    def test_defaults(self):
+        bean = Bean(title="Fix auth")
 
-    def test_id_format(self, bean):
         assert re.fullmatch(r"bean-[0-9a-f]{8}", bean.id)
-
-    def test_title(self, bean):
-        assert bean.title == "Fix auth"
-
-    def test_type_defaults_to_task(self, bean):
-        assert bean.type == "task"
-
-    def test_status_defaults_to_open(self, bean):
-        assert bean.status == "open"
-
-    def test_priority_defaults_to_2(self, bean):
-        assert bean.priority == 2
-
-    def test_body_defaults_to_empty(self, bean):
-        assert bean.body == ""
-
-    def test_parent_id_defaults_to_none(self, bean):
-        assert bean.parent_id is None
-
-    def test_assignee_defaults_to_none(self, bean):
-        assert bean.assignee is None
-
-    def test_created_by_defaults_to_none(self, bean):
-        assert bean.created_by is None
-
-    def test_ref_id_defaults_to_none(self, bean):
-        assert bean.ref_id is None
-
-    def test_created_at_is_set(self, bean):
         assert isinstance(bean.created_at, datetime)
+        assert bean.model_dump(exclude={"id", "created_at"}) == {
+            "title": "Fix auth",
+            "type": "task",
+            "status": "open",
+            "priority": 2,
+            "body": "",
+            "parent_id": None,
+            "assignee": None,
+            "created_by": None,
+            "ref_id": None,
+        }
 
 
 class TestBeanCustomFields:
