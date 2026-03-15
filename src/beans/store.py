@@ -72,6 +72,46 @@ BEGIN
         'closed_at', NEW.closed_at
     ));
 END;
+
+CREATE TRIGGER IF NOT EXISTS journal_after_update
+AFTER UPDATE ON beans
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('update', NEW.id, json_object(
+        'id', NEW.id,
+        'title', NEW.title,
+        'type', NEW.type,
+        'status', NEW.status,
+        'priority', NEW.priority,
+        'body', NEW.body,
+        'parent_id', NEW.parent_id,
+        'assignee', NEW.assignee,
+        'created_by', NEW.created_by,
+        'ref_id', NEW.ref_id,
+        'created_at', NEW.created_at,
+        'closed_at', NEW.closed_at
+    ));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_after_delete
+AFTER DELETE ON beans
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('delete', OLD.id, json_object(
+        'id', OLD.id,
+        'title', OLD.title,
+        'type', OLD.type,
+        'status', OLD.status,
+        'priority', OLD.priority,
+        'body', OLD.body,
+        'parent_id', OLD.parent_id,
+        'assignee', OLD.assignee,
+        'created_by', OLD.created_by,
+        'ref_id', OLD.ref_id,
+        'created_at', OLD.created_at,
+        'closed_at', OLD.closed_at
+    ));
+END;
 """
 
 
