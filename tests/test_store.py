@@ -14,10 +14,8 @@ class TestBeanStoreCreateAndList:
 
     @pytest.fixture()
     def store(self):
-        conn = sqlite3.connect(":memory:")
-        s = BeanStore(conn)
-        yield s
-        s.close()
+        with BeanStore(sqlite3.connect(":memory:")) as s:
+            yield s
 
     def test_list_empty_store(self, store):
         assert store.list_beans() == []

@@ -48,6 +48,12 @@ class BeanStore:
     def close(self):
         self.conn.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def create_bean(self, bean: Bean) -> Bean:
         self.conn.execute(
             """INSERT INTO beans

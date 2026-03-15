@@ -37,10 +37,9 @@ def get_store() -> BeanStore:
 @app.command()
 def create(title: str):
     """Create a new bean."""
-    store = get_store()
-    bean = Bean(title=title)
-    store.create_bean(bean)
-    store.close()
+    with get_store() as store:
+        bean = Bean(title=title)
+        store.create_bean(bean)
 
     if state.get("json"):
         typer.echo(bean.model_dump_json())
@@ -51,9 +50,8 @@ def create(title: str):
 @app.command("list")
 def list_beans():
     """List all beans."""
-    store = get_store()
-    beans = store.list_beans()
-    store.close()
+    with get_store() as store:
+        beans = store.list_beans()
 
     if state.get("json"):
         typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
