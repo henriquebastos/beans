@@ -8,6 +8,10 @@ def columns(cursor: sqlite3.Cursor) -> list[str]:
     return [desc[0] for desc in cursor.description]
 
 
+def row(cols: list[str], values: tuple) -> dict:
+    return dict(zip(cols, values))
+
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -71,5 +75,5 @@ class BeanStore:
         return [self._row_to_bean(columns(cursor), row) for row in cursor.fetchall()]
 
     @staticmethod
-    def _row_to_bean(columns: list[str], row: tuple) -> Bean:
-        return Bean(**dict(zip(columns, row)))
+    def _row_to_bean(cols: list[str], values: tuple) -> Bean:
+        return Bean(**row(cols, values))
