@@ -29,5 +29,8 @@ htmlcov/
 .coverage
 .coverage.*
 
+# Build
+dist/
+
 # Beans runtime
 beans.db
