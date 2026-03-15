@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep
 from beans.store import Store
 
 
@@ -135,7 +135,7 @@ class TestBeanStoreReady:
     def test_blocked_bean_excluded(self, store):
         a = store.bean.create(Bean(title="Task A"))
         b = store.bean.create(Bean(title="Task B"))
-        store.dep.add(a.id, b.id)
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
 
         assert store.bean.ready() == [a]
 
@@ -143,15 +143,15 @@ class TestBeanStoreReady:
         a = store.bean.create(Bean(title="Task A"))
         b = store.bean.create(Bean(title="Task B"))
         c = store.bean.create(Bean(title="Task C"))
-        store.dep.add(a.id, b.id)
-        store.dep.add(b.id, c.id)
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        store.dep.add(Dep(from_id=b.id, to_id=c.id))
 
         assert store.bean.ready() == [a]
 
     def test_closed_blocker_does_not_block(self, store):
         a = store.bean.create(Bean(title="Task A", status="closed"))
         b = store.bean.create(Bean(title="Task B"))
-        store.dep.add(a.id, b.id)
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
 
         assert store.bean.ready() == [a, b]
 
@@ -162,8 +162,8 @@ class TestBeanStoreReady:
         a = store.bean.create(Bean(title="Task A", status="closed"))
         b = store.bean.create(Bean(title="Task B"))
         c = store.bean.create(Bean(title="Task C"))
-        store.dep.add(a.id, b.id)
-        store.dep.add(b.id, c.id)
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        store.dep.add(Dep(from_id=b.id, to_id=c.id))
 
         assert store.bean.ready() == [a, b]
 

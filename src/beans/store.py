@@ -146,8 +146,7 @@ class BeanStore(BaseStore):
 
 
 class DepStore(BaseStore):
-    def add(self, from_id, to_id, dep_type="blocks") -> Dep:
-        dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
+    def add(self, dep: Dep) -> Dep:
         with self.conn:
             self.conn.execute(
                 "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",

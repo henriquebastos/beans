@@ -27,27 +27,29 @@ class TestDepStoreAdd:
 
     def test_add_and_list(self, store, two_beans):
         a, b = two_beans
-        store.dep.add(a.id, b.id)
+        dep = Dep(from_id=a.id, to_id=b.id)
+        store.dep.add(dep)
 
-        assert store.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id)]
+        assert store.dep.list(a.id) == [dep]
 
     def test_add_returns_dep(self, store, two_beans):
         a, b = two_beans
-        dep = store.dep.add(a.id, b.id)
+        dep = Dep(from_id=a.id, to_id=b.id)
 
-        assert dep == Dep(from_id=a.id, to_id=b.id)
+        assert store.dep.add(dep) == dep
 
     def test_add_default_type_is_blocks(self, store, two_beans):
         a, b = two_beans
-        dep = store.dep.add(a.id, b.id)
+        dep = Dep(from_id=a.id, to_id=b.id)
 
         assert dep.dep_type == "blocks"
 
     def test_add_custom_type(self, store, two_beans):
         a, b = two_beans
-        store.dep.add(a.id, b.id, dep_type="relates")
+        dep = Dep(from_id=a.id, to_id=b.id, dep_type="relates")
+        store.dep.add(dep)
 
-        assert store.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id, dep_type="relates")]
+        assert store.dep.list(a.id) == [dep]
 
     def test_list_empty(self, store, two_beans):
         a, _ = two_beans
@@ -58,21 +60,20 @@ class TestDepStoreAdd:
         b = store.bean.create(Bean(title="Task B"))
         c = store.bean.create(Bean(title="Task C"))
 
-        store.dep.add(a.id, b.id)
-        store.dep.add(a.id, c.id)
+        ab = Dep(from_id=a.id, to_id=b.id)
+        ac = Dep(from_id=a.id, to_id=c.id)
+        store.dep.add(ab)
+        store.dep.add(ac)
 
-        assert set(store.dep.list(a.id)) == {
-            Dep(from_id=a.id, to_id=b.id),
-            Dep(from_id=a.id, to_id=c.id),
-        }
+        assert set(store.dep.list(a.id)) == {ab, ac}
 
     def test_list_only_returns_from_bean(self, store):
         a = store.bean.create(Bean(title="Task A"))
         b = store.bean.create(Bean(title="Task B"))
         c = store.bean.create(Bean(title="Task C"))
 
-        store.dep.add(a.id, b.id)
-        store.dep.add(c.id, b.id)
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        store.dep.add(Dep(from_id=c.id, to_id=b.id))
 
         assert store.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id)]
 
@@ -82,7 +83,7 @@ class TestDepStoreRemove:
 
     def test_remove(self, store, two_beans):
         a, b = two_beans
-        store.dep.add(a.id, b.id)
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
 
         assert store.dep.remove(a.id, b.id) == 1
         assert store.dep.list(a.id) == []

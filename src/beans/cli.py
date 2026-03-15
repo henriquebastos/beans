@@ -161,8 +161,9 @@ def dep_add(
     dep_type: Annotated[str, typer.Option("--type", help="Dependency type")] = "blocks",
 ):
     """Add a dependency between two beans."""
+    dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
     with get_store() as store:
-        dep = store.dep.add(from_id, to_id, dep_type=dep_type)
+        store.dep.add(dep)
 
     typer.echo(output(dep, state["json"]))
 
