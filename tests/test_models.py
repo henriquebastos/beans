@@ -7,7 +7,6 @@ from pydantic import ValidationError
 # Pip imports
 import pytest
 
-# Internal imports
 from beans.models import Bean
 
 FIXED_TIME = datetime(2025, 1, 1, tzinfo=UTC)
@@ -31,6 +30,7 @@ class TestBeanDefaults:
             "created_by": None,
             "ref_id": None,
             "created_at": FIXED_TIME,
+            "closed_at": None,
         }
 
     def test_id_format(self):

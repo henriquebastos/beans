@@ -62,6 +62,21 @@ def local_timestamp(dt, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 ```
 
+### `**kwargs` over dict for named fields
+
+When a function accepts a set of named fields, use `**kwargs` instead of a dict parameter.
+It reads better at the call site and lets the interpreter catch typos.
+
+```python
+# Yes
+def update(self, bean_id, **fields) -> int: ...
+store.update(bean_id, title="New title", status="closed")
+
+# No
+def update(self, bean_id, fields: dict) -> int: ...
+store.update(bean_id, {"title": "New title", "status": "closed"})
+```
+
 ### Constants for magic values
 
 ```python
@@ -114,7 +129,7 @@ Resource-holding classes implement `__enter__`/`__exit__` to avoid explicit `clo
 
 ```python
 with BeanStore.from_path("beans.db") as store:
-    store.create_bean(bean)
+    store.create(bean)
 ```
 
 ### Model stays pure, display lives in CLI
@@ -128,10 +143,24 @@ is a CLI concern — use standalone functions like `format_bean()`.
 
 BeanStore gets a real SQLite `:memory:` database. Test real behavior, not mock wiring.
 
-### Structural tests with dict comparison
+### Assert against the model, not individual fields
 
-For models, use `model_dump()` and compare against an expected dict. Pass fixed `id` and
-`created_at` to avoid excluding dynamic fields.
+Leverage Pydantic equality to compare whole objects. Don't decompose into field-by-field
+checks when a single comparison says it all.
+
+```python
+# Yes — one assertion, full structural check
+assert store.get(bean.id) == bean
+assert store.list() == [b1, b2]
+
+# No — decomposing what equality already covers
+result = store.get(bean.id)
+assert result.id == bean.id
+assert result.title == "Fix auth"
+```
+
+For model defaults, use `model_dump()` against an expected dict with fixed `id` and
+`created_at` to pin dynamic fields.
 
 ```python
 def test_defaults(self):
@@ -144,10 +173,22 @@ def test_defaults(self):
     }
 ```
 
-### Test classes for shared context
+### Module-level fixtures for shared infrastructure
 
-Group related tests in a class. Use fixtures scoped to the class when they're only used
-by its methods.
+Extract common fixtures (like `store`) to module level. Keep test classes for grouping
+related tests by behavior, not for fixture scoping.
+
+```python
+@pytest.fixture()
+def store():
+    with BeanStore(sqlite3.connect(":memory:")) as s:
+        yield s
+
+
+class TestBeanStoreCreateAndList:
+    def test_create_and_list(self, store):
+        ...
+```
 
 ### One assertion purpose per test
 

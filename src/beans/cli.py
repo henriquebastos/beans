@@ -1,16 +1,18 @@
 # Python imports
-from datetime import datetime
+from datetime import UTC, datetime
 import json
 from typing import Annotated
 
 # Pip imports
+from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, BeanId, BeanNotFoundError
 from beans.store import BeanStore
 
 app = typer.Typer()
+BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
 # Global state shared across commands
 state: dict = {}
@@ -29,8 +31,15 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 
 
-def format_bean(bean: Bean) -> str:
+def line(bean: Bean) -> str:
+    if state.get("json"):
+        return bean.model_dump_json()
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
+
+
+def error(e: Exception):
+    typer.echo(str(e), err=True)
+    raise typer.Exit(code=1) from e
 
 
 def get_store() -> BeanStore:
@@ -43,22 +52,82 @@ def create(title: str):
     """Create a new bean."""
     bean = Bean(title=title)
     with get_store() as store:
-        store.create_bean(bean)
+        store.create(bean)
 
-    if state.get("json"):
-        typer.echo(bean.model_dump_json())
-    else:
-        typer.echo(format_bean(bean))
+    typer.echo(line(bean))
+
+
+@app.command()
+def show(bean_id: BeanIdArg):
+    """Show a single bean by id."""
+    try:
+        with get_store() as store:
+            bean = store.get(bean_id)
+    except BeanNotFoundError as e:
+        error(e)
+
+    typer.echo(line(bean))
+
+
+@app.command()
+def update(
+    bean_id: BeanIdArg,
+    title: Annotated[str | None, typer.Option(help="New title")] = None,
+    status: Annotated[str | None, typer.Option(help="New status")] = None,
+    priority: Annotated[int | None, typer.Option(help="New priority")] = None,
+    body: Annotated[str | None, typer.Option(help="New body")] = None,
+):
+    """Update fields on a bean."""
+    all_fields = {"title": title, "status": status, "priority": priority, "body": body}
+    fields = {k: v for k, v in all_fields.items() if v is not None}
+
+    try:
+        Bean.model_validate({"id": "bean-00000000", "title": "validate", **fields})
+    except ValidationError as e:
+        error(e)
+
+    try:
+        with get_store() as store:
+            if store.update(bean_id, **fields) == 0:
+                raise BeanNotFoundError(bean_id)
+            bean = store.get(bean_id)
+    except BeanNotFoundError as e:
+        error(e)
+
+    typer.echo(line(bean))
+
+
+@app.command()
+def close(bean_id: BeanIdArg):
+    """Close a bean (set status=closed and closed_at)."""
+    try:
+        with get_store() as store:
+            store.update(bean_id, status="closed", closed_at=datetime.now(UTC).isoformat())
+            bean = store.get(bean_id)
+    except BeanNotFoundError as e:
+        error(e)
+
+    typer.echo(line(bean))
+
+
+@app.command()
+def delete(bean_id: BeanIdArg):
+    """Delete a bean."""
+    with get_store() as store:
+        if store.delete(bean_id) == 0:
+            error(BeanNotFoundError(bean_id))
+
+    typer.echo(f"Deleted {bean_id}")
 
 
 @app.command("list")
 def list_beans():
     """List all beans."""
     with get_store() as store:
-        beans = store.list_beans()
+        beans = store.list()
 
     if state.get("json"):
         typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
     else:
         for bean in beans:
-            typer.echo(format_bean(bean))
+            typer.echo(line(bean))

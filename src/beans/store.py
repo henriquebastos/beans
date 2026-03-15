@@ -2,7 +2,7 @@
 import sqlite3
 
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, BeanId, BeanNotFoundError
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -28,9 +28,13 @@ CREATE TABLE IF NOT EXISTS beans (
     assignee TEXT,
     created_by TEXT,
     ref_id TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    closed_at TEXT
 );
 """
+
+
+UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
 
 
 class BeanStore:
@@ -55,29 +59,60 @@ class BeanStore:
     def __exit__(self, *args):
         self.close()
 
-    def create_bean(self, bean: Bean) -> Bean:
-        self.conn.execute(
-            """INSERT INTO beans
-            (id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                bean.id,
-                bean.title,
-                bean.type,
-                bean.status,
-                bean.priority,
-                bean.body,
-                bean.parent_id,
-                bean.assignee,
-                bean.created_by,
-                bean.ref_id,
-                bean.created_at.isoformat(),
-            ),
-        )
-        self.conn.commit()
+    def create(self, bean: Bean) -> Bean:
+        with self.conn:
+            self.conn.execute(
+                """INSERT INTO beans
+                (id, title, type, status, priority, body,
+                parent_id, assignee, created_by, ref_id, created_at, closed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    bean.id,
+                    bean.title,
+                    bean.type,
+                    bean.status,
+                    bean.priority,
+                    bean.body,
+                    bean.parent_id,
+                    bean.assignee,
+                    bean.created_by,
+                    bean.ref_id,
+                    bean.created_at.isoformat(),
+                    bean.closed_at.isoformat() if bean.closed_at else None,
+                ),
+            )
         return bean
 
-    def list_beans(self) -> list[Bean]:
+    def get(self, bean_id: BeanId) -> Bean:
+        cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
+
+        match = cursor.fetchone()
+        if match is None:
+            raise BeanNotFoundError(bean_id)
+
+        cols = columns(cursor)
+        return Bean(**row(cols, match))
+
+    def update(self, bean_id, **fields) -> int:
+        if not fields:
+            return 0
+
+        if (invalid := fields.keys() - UPDATABLE_FIELDS):
+            raise ValueError(f"Invalid fields: {invalid}")
+
+        set_clause = ", ".join(f"{k} = ?" for k in fields)
+        values = [*fields.values(), bean_id]
+
+        with self.conn:
+            cursor = self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
+        return cursor.rowcount
+
+    def delete(self, bean_id) -> int:
+        with self.conn:
+            cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
+        return cursor.rowcount
+
+    def list(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]

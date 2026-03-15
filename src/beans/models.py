@@ -7,15 +7,38 @@ from typing import Literal
 # Pip imports
 from pydantic import BaseModel, Field
 
+
+class BeanNotFoundError(KeyError):
+    pass
+
+
+class AmbiguousIdError(ValueError):
+    pass
+
+
+ID_PREFIX = "bean-"
 ID_BYTES = 4
 
 
-def generate_id(prefix="bean-", fn=partial(secrets.token_hex, ID_BYTES)) -> str:
-    return prefix + fn()
+class BeanId(str):
+    def __new__(cls, value="", **kwargs):
+        if not value.startswith(ID_PREFIX):
+            raise ValueError(f"Invalid bean id: {value}")
+        return super().__new__(cls, value)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        from pydantic_core import core_schema
+
+        return core_schema.no_info_plain_validator_function(cls)
+
+    @classmethod
+    def generate(cls, prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
+        return cls(prefix + fn())
 
 
 class Bean(BaseModel):
-    id: str = Field(default_factory=generate_id)
+    id: BeanId = Field(default_factory=BeanId.generate)
     title: str
     type: str = "task"
     status: Literal["open", "in_progress", "closed"] = "open"
@@ -26,3 +49,4 @@ class Bean(BaseModel):
     created_by: str | None = None
     ref_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    closed_at: datetime | None = None
