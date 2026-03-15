@@ -192,14 +192,43 @@ class DepStore(BaseStore):
         return cursor.rowcount
 
 
-class Store(BaseStore):
+class DryRunConnection:
+    """Wraps a sqlite3.Connection to prevent commits for dry-run mode."""
+
     def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+        conn.isolation_level = None
+        conn.execute("BEGIN")
+
+    def __getattr__(self, name):
+        return getattr(self.conn, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    def rollback(self):
+        self.conn.rollback()
+
+
+class Store(BaseStore):
+    def __init__(self, conn: sqlite3.Connection, dry_run=False):
         super().__init__(conn)
         self.init_db(conn)
-        self.bean = BeanStore(conn)
-        self.dep = DepStore(conn)
+        wrapped = DryRunConnection(conn) if dry_run else conn
+        self.bean = BeanStore(wrapped)
+        self.dep = DepStore(wrapped)
+        self.dry_run = dry_run
+
+    @classmethod
+    def from_path(cls, db_path: str, dry_run=False) -> Self:
+        return cls(sqlite3.connect(db_path), dry_run=dry_run)
 
     def close(self):
+        if self.dry_run:
+            self.bean.conn.rollback()
         self.conn.close()
 
     def __enter__(self):

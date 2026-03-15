@@ -23,9 +23,11 @@ state: dict = {}
 def main(
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
 ):
     state["db"] = db
     state["json"] = json_output
+    state["dry_run"] = dry_run
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
@@ -56,7 +58,7 @@ def error(e: Exception):
 
 def get_store() -> Store:
     db_path = state.get("db") or "beans.db"  # TODO: project discovery (Phase 6.2)
-    return Store.from_path(db_path)
+    return Store.from_path(db_path, dry_run=state.get("dry_run", False))
 
 
 @app.command()

@@ -281,6 +281,57 @@ class TestHumanOutput:
         assert invoke_human("dep", "remove", a["id"], b["id"]) == 0
 
 
+class TestDryRunMode:
+    """'--dry-run' shows what would happen without writing."""
+
+    def test_dry_run_create_shows_bean_but_does_not_persist(self, invoke_agent):
+        exit_code, data = invoke_agent("--dry-run", "create", "Fix auth")
+        assert exit_code == 0
+        assert data["title"] == "Fix auth"
+
+        _, beans = invoke_agent("list")
+        assert beans == []
+
+    def test_dry_run_update_shows_change_but_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Old title")
+
+        exit_code, data = invoke_agent("--dry-run", "update", created["id"], "--title", "New title")
+        assert exit_code == 0
+        assert data["title"] == "New title"
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["title"] == "Old title"
+
+    def test_dry_run_delete_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, _ = invoke_agent("--dry-run", "delete", created["id"])
+        assert exit_code == 0
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["title"] == "Fix auth"
+
+    def test_dry_run_close_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("--dry-run", "close", created["id"])
+        assert exit_code == 0
+        assert data["status"] == "closed"
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["status"] == "open"
+
+    def test_dry_run_claim_does_not_persist(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("--dry-run", "claim", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] == "alice"
+
+        _, bean = invoke_agent("show", created["id"])
+        assert bean["assignee"] is None
+
+
 class TestInputValidation:
     """Invalid inputs are rejected with clear errors."""
 
