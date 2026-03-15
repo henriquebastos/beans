@@ -1,12 +1,24 @@
-## [unreleased]
+## [0.1.1] - 2026-03-15
 
 ### 🐛 Bug Fixes
 
 - Ruff isort config and import ordering
+- Checkout main before committing changelog
+
+### 📚 Documentation
+
+- Add release instructions to README
 
 ### ⚙️ Miscellaneous Tasks
 
 - Trigger release on GitHub Release publish
+- Add git-cliff for changelog generation
+- Auto-generate changelog on release
+- Require passing tests before publish
+- Reuse CI workflow in release pipeline
+- Attach build artifacts to GitHub Release
+- Auto-update Homebrew formula on release
+- Bump version to 0.1.1
 ## [0.1.0] - 2026-03-15
 
 ### 🚀 Features
