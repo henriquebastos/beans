@@ -9,13 +9,14 @@ from beans.models import AmbiguousIdError, Bean, BeanId, BeanNotFoundError
 from beans.store import BeanStore
 
 
+@pytest.fixture()
+def store():
+    with BeanStore(sqlite3.connect(":memory:")) as s:
+        yield s
+
+
 class TestBeanStoreCreateAndList:
     """BeanStore can persist and retrieve beans."""
-
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
 
     def test_list_empty_store(self, store):
         assert store.list() == []
@@ -24,19 +25,13 @@ class TestBeanStoreCreateAndList:
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        beans = store.list()
-        assert len(beans) == 1
-        assert beans[0].title == "Fix auth"
-        assert beans[0].id == bean.id
+        assert store.list() == [bean]
 
     def test_create_multiple_beans(self, store):
-        store.create(Bean(title="First"))
-        store.create(Bean(title="Second"))
+        b1 = store.create(Bean(title="First"))
+        b2 = store.create(Bean(title="Second"))
 
-        beans = store.list()
-        assert len(beans) == 2
-        titles = {b.title for b in beans}
-        assert titles == {"First", "Second"}
+        assert store.list() == [b1, b2]
 
     def test_roundtrip_preserves_all_fields(self, store):
         bean = Bean(
@@ -59,18 +54,11 @@ class TestBeanStoreCreateAndList:
 class TestBeanStoreGetBean:
     """BeanStore can retrieve a single bean by id."""
 
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
-
     def test_get_existing_bean(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        result = store.get(bean.id)
-        assert result.id == bean.id
-        assert result.title == "Fix auth"
+        assert store.get(bean.id) == bean
 
     def test_get_nonexistent_bean_raises(self, store):
         with pytest.raises(BeanNotFoundError):
@@ -79,11 +67,6 @@ class TestBeanStoreGetBean:
 
 class TestBeanStoreUpdateBean:
     """BeanStore can update bean fields."""
-
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
 
     def test_update_title(self, store):
         bean = Bean(title="Old title")
@@ -129,11 +112,6 @@ class TestBeanStoreUpdateBean:
 class TestBeanStoreDeleteBean:
     """BeanStore can delete a bean."""
 
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
-
     def test_delete_removes_bean(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
@@ -149,31 +127,23 @@ class TestBeanStoreDeleteBean:
 class TestBeanStorePrefixMatch:
     """BeanStore resolves id prefixes to full beans."""
 
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
-
     def test_full_id_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
         store.create(bean)
 
-        result = store.get("bean-aabbccdd")
-        assert result.id == "bean-aabbccdd"
+        assert store.get("bean-aabbccdd") == bean
 
     def test_prefix_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
         store.create(bean)
 
-        result = store.get("bean-aabb")
-        assert result.id == "bean-aabbccdd"
+        assert store.get("bean-aabb") == bean
 
     def test_short_prefix_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
         store.create(bean)
 
-        result = store.get("bean-aa")
-        assert result.id == "bean-aabbccdd"
+        assert store.get("bean-aa") == bean
 
     def test_ambiguous_prefix_raises(self, store):
         store.create(Bean(id="bean-aabb0001", title="First"))
@@ -189,11 +159,6 @@ class TestBeanStorePrefixMatch:
 
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
-
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
 
     def test_update_invalid_status_rejected(self, store):
         bean = Bean(title="Fix auth")

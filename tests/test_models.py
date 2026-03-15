@@ -7,7 +7,6 @@ from pydantic import ValidationError
 # Pip imports
 import pytest
 
-# Internal imports
 from beans.models import Bean
 
 FIXED_TIME = datetime(2025, 1, 1, tzinfo=UTC)
