@@ -1,5 +1,5 @@
 # Python imports
-from datetime import datetime
+from datetime import UTC, datetime
 import json
 from typing import Annotated
 
@@ -52,7 +52,7 @@ def create(title: str):
     """Create a new bean."""
     bean = Bean(title=title)
     with get_store() as store:
-        store.create_bean(bean)
+        store.create(bean)
 
     typer.echo(format_bean(bean))
 
@@ -62,7 +62,7 @@ def show(bean_id: BeanIdArg):
     """Show a single bean by id."""
     try:
         with get_store() as store:
-            bean = store.get_bean(bean_id)
+            bean = store.get(bean_id)
     except (BeanNotFoundError, AmbiguousIdError) as e:
         bean_error(e)
 
@@ -83,7 +83,8 @@ def update(
 
     try:
         with get_store() as store:
-            bean = store.update_bean(bean_id, fields)
+            store.update(bean_id, fields)
+            bean = store.get(bean_id)
     except (BeanNotFoundError, AmbiguousIdError, ValueError, ValidationError) as e:
         bean_error(e)
 
@@ -95,7 +96,8 @@ def close(bean_id: BeanIdArg):
     """Close a bean (set status=closed and closed_at)."""
     try:
         with get_store() as store:
-            bean = store.close_bean(bean_id)
+            store.update(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
+            bean = store.get(bean_id)
     except (BeanNotFoundError, AmbiguousIdError) as e:
         bean_error(e)
 
@@ -105,11 +107,9 @@ def close(bean_id: BeanIdArg):
 @app.command()
 def delete(bean_id: BeanIdArg):
     """Delete a bean."""
-    try:
-        with get_store() as store:
-            store.delete_bean(bean_id)
-    except BeanNotFoundError as e:
-        bean_error(e)
+    with get_store() as store:
+        if store.delete(bean_id) == 0:
+            bean_error(BeanNotFoundError(bean_id))
 
     typer.echo(f"Deleted {bean_id}")
 
@@ -118,7 +118,7 @@ def delete(bean_id: BeanIdArg):
 def list_beans():
     """List all beans."""
     with get_store() as store:
-        beans = store.list_beans()
+        beans = store.list()
 
     if state.get("json"):
         typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))

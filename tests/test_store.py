@@ -18,22 +18,22 @@ class TestBeanStoreCreateAndList:
             yield s
 
     def test_list_empty_store(self, store):
-        assert store.list_beans() == []
+        assert store.list() == []
 
     def test_create_and_list_one_bean(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        beans = store.list_beans()
+        beans = store.list()
         assert len(beans) == 1
         assert beans[0].title == "Fix auth"
         assert beans[0].id == bean.id
 
     def test_create_multiple_beans(self, store):
-        store.create_bean(Bean(title="First"))
-        store.create_bean(Bean(title="Second"))
+        store.create(Bean(title="First"))
+        store.create(Bean(title="Second"))
 
-        beans = store.list_beans()
+        beans = store.list()
         assert len(beans) == 2
         titles = {b.title for b in beans}
         assert titles == {"First", "Second"}
@@ -50,9 +50,9 @@ class TestBeanStoreCreateAndList:
             created_by="bob",
             ref_id="GH-42",
         )
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.list_beans()[0]
+        result = store.list()[0]
         assert result.id == bean.id
         assert result.title == bean.title
         assert result.type == bean.type
@@ -76,15 +76,15 @@ class TestBeanStoreGetBean:
 
     def test_get_existing_bean(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.get_bean(bean.id)
+        result = store.get(bean.id)
         assert result.id == bean.id
         assert result.title == "Fix auth"
 
     def test_get_nonexistent_bean_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.get_bean(BeanId("bean-00000000"))
+            store.get(BeanId("bean-00000000"))
 
 
 class TestBeanStoreUpdateBean:
@@ -97,71 +97,43 @@ class TestBeanStoreUpdateBean:
 
     def test_update_title(self, store):
         bean = Bean(title="Old title")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.update_bean(bean.id, {"title": "New title"})
-        assert result.title == "New title"
+        assert store.update(bean.id, {"title": "New title"}) == 1
+        assert store.get(bean.id).title == "New title"
 
     def test_update_status(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.update_bean(bean.id, {"status": "in_progress"})
-        assert result.status == "in_progress"
+        assert store.update(bean.id, {"status": "in_progress"}) == 1
+        assert store.get(bean.id).status == "in_progress"
 
     def test_update_priority(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.update_bean(bean.id, {"priority": 0})
-        assert result.priority == 0
+        assert store.update(bean.id, {"priority": 0}) == 1
+        assert store.get(bean.id).priority == 0
 
     def test_update_multiple_fields(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.update_bean(bean.id, {"title": "New title", "status": "closed"})
+        assert store.update(bean.id, {"title": "New title", "status": "closed"}) == 1
+        result = store.get(bean.id)
         assert result.title == "New title"
         assert result.status == "closed"
 
-    def test_update_persists(self, store):
+    def test_update_empty_fields(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        store.update_bean(bean.id, {"title": "Updated"})
-        result = store.get_bean(bean.id)
-        assert result.title == "Updated"
+        assert store.update(bean.id, {}) == 0
 
     def test_update_nonexistent_bean_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.update_bean(BeanId("bean-00000000"), {"title": "Nope"})
-
-
-class TestBeanStoreCloseBean:
-    """BeanStore can close a bean."""
-
-    @pytest.fixture()
-    def store(self):
-        with BeanStore(sqlite3.connect(":memory:")) as s:
-            yield s
-
-    def test_close_sets_status_closed(self, store):
-        bean = Bean(title="Fix auth")
-        store.create_bean(bean)
-
-        result = store.close_bean(bean.id)
-        assert result.status == "closed"
-
-    def test_close_sets_closed_at(self, store):
-        bean = Bean(title="Fix auth")
-        store.create_bean(bean)
-
-        result = store.close_bean(bean.id)
-        assert result.closed_at is not None
-
-    def test_close_nonexistent_bean_raises(self, store):
-        with pytest.raises(BeanNotFoundError):
-            store.close_bean(BeanId("bean-00000000"))
+            store.update(BeanId("bean-00000000"), {"title": "Nope"})
 
 
 class TestBeanStoreDeleteBean:
@@ -174,15 +146,14 @@ class TestBeanStoreDeleteBean:
 
     def test_delete_removes_bean(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        store.delete_bean(bean.id)
+        store.delete(bean.id)
         with pytest.raises(BeanNotFoundError):
-            store.get_bean(bean.id)
+            store.get(bean.id)
 
-    def test_delete_nonexistent_bean_raises(self, store):
-        with pytest.raises(BeanNotFoundError):
-            store.delete_bean(BeanId("bean-00000000"))
+    def test_delete_nonexistent_returns_zero(self, store):
+        assert store.delete(BeanId("bean-00000000")) == 0
 
 
 class TestBeanStorePrefixMatch:
@@ -195,35 +166,35 @@ class TestBeanStorePrefixMatch:
 
     def test_full_id_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.get_bean("bean-aabbccdd")
+        result = store.get("bean-aabbccdd")
         assert result.id == "bean-aabbccdd"
 
     def test_prefix_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.get_bean("bean-aabb")
+        result = store.get("bean-aabb")
         assert result.id == "bean-aabbccdd"
 
     def test_short_prefix_match(self, store):
         bean = Bean(id="bean-aabbccdd", title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
-        result = store.get_bean("bean-aa")
+        result = store.get("bean-aa")
         assert result.id == "bean-aabbccdd"
 
     def test_ambiguous_prefix_raises(self, store):
-        store.create_bean(Bean(id="bean-aabb0001", title="First"))
-        store.create_bean(Bean(id="bean-aabb0002", title="Second"))
+        store.create(Bean(id="bean-aabb0001", title="First"))
+        store.create(Bean(id="bean-aabb0002", title="Second"))
 
         with pytest.raises(AmbiguousIdError):
-            store.get_bean("bean-aabb")
+            store.get("bean-aabb")
 
     def test_no_match_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.get_bean("bean-zzzzzzzz")
+            store.get("bean-zzzzzzzz")
 
 
 class TestBeanStoreValidation:
@@ -236,17 +207,17 @@ class TestBeanStoreValidation:
 
     def test_update_invalid_status_rejected(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
         with pytest.raises(ValueError, match="status"):
-            store.update_bean(bean.id, {"status": "deleted"})
+            store.update(bean.id, {"status": "deleted"})
 
     def test_update_invalid_priority_rejected(self, store):
         bean = Bean(title="Fix auth")
-        store.create_bean(bean)
+        store.create(bean)
 
         with pytest.raises(ValueError, match="priority"):
-            store.update_bean(bean.id, {"priority": 5})
+            store.update(bean.id, {"priority": 5})
 
     def test_invalid_bean_id_rejected(self, store):
         with pytest.raises(ValueError, match="Invalid bean id"):

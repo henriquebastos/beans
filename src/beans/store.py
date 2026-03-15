@@ -1,5 +1,4 @@
 # Python imports
-from datetime import UTC, datetime
 import sqlite3
 
 # Internal imports
@@ -60,7 +59,7 @@ class BeanStore:
     def __exit__(self, *args):
         self.close()
 
-    def create_bean(self, bean: Bean) -> Bean:
+    def create(self, bean: Bean) -> Bean:
         with self.conn:
             self.conn.execute(
                 """INSERT INTO beans
@@ -84,41 +83,42 @@ class BeanStore:
             )
         return bean
 
-    def get_bean(self, bean_id) -> Bean:
+    def get(self, bean_id) -> Bean:
         bean_id = BeanId(bean_id)
         cursor = self.conn.execute("SELECT * FROM beans WHERE id LIKE ?", (bean_id + "%",))
-        cols = columns(cursor)
+
         matches = cursor.fetchall()
         if len(matches) == 0:
             raise BeanNotFoundError(bean_id)
         if len(matches) > 1:
             raise AmbiguousIdError(bean_id)
+
+        cols = columns(cursor)
         return Bean(**row(cols, matches[0]))
 
-    def close_bean(self, bean_id) -> Bean:
-        return self.update_bean(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
-
-    def update_bean(self, bean_id, fields: dict) -> Bean:
-        bean = self.get_bean(bean_id)
+    def update(self, bean_id, fields: dict) -> int:
         if not fields:
-            return bean
-        for key in fields:
-            if key not in UPDATABLE_FIELDS:
-                raise ValueError(f"Invalid field: {key}")
+            return 0
+
+        if (invalid := fields.keys() - UPDATABLE_FIELDS):
+            raise ValueError(f"Invalid fields: {invalid}")
+
+        bean = self.get(bean_id)
         Bean.model_validate({"id": bean.id, "title": "validate", **fields})
+
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = [*fields.values(), bean.id]
+        
         with self.conn:
-            self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
-        return self.get_bean(bean.id)
+            cursor = self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
+        return cursor.rowcount
 
-    def delete_bean(self, bean_id):
+    def delete(self, bean_id) -> int:
         with self.conn:
             cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
-        if cursor.rowcount == 0:
-            raise BeanNotFoundError(bean_id)
+        return cursor.rowcount
 
-    def list_beans(self) -> list[Bean]:
+    def list(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
