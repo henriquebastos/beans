@@ -171,3 +171,32 @@ uv run ruff check src/ tests/
 
 Tests use real SQLite `:memory:` databases — no mocks. The test suite runs in under a
 second.
+
+### Releasing
+
+1. Bump the version:
+   ```bash
+   uv version --bump patch   # or minor, major
+   ```
+
+2. Commit and push:
+   ```bash
+   git add pyproject.toml uv.lock
+   git commit -m "chore: bump version to $(uv version --short)"
+   git push
+   ```
+
+3. Create a GitHub Release:
+   ```bash
+   gh release create v$(uv version --short) --generate-notes
+   ```
+
+This triggers the release workflow which:
+- Runs the full test suite
+- Generates changelog from conventional commits
+- Updates `CHANGELOG.md` and commits it
+- Attaches build artifacts to the release
+- Publishes to PyPI
+
+The package is published as `magic-beans` on PyPI (`pip install magic-beans`),
+but the CLI command is `beans` and the import is `import beans`.
