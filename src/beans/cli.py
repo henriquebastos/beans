@@ -97,7 +97,7 @@ def update(
     fields = {k: v for k, v in all_fields.items() if v is not None}
 
     try:
-        Bean.model_validate({"id": "bean-00000000", "title": "validate", **fields})
+        Bean.fields_validate(**fields)
     except ValidationError as e:
         error(e)
 
