@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS beans (
 class BeanStore:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
+        self._init_db()
+
+    def _init_db(self):
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self.conn.execute("PRAGMA foreign_keys=ON;")
         self.conn.executescript(SCHEMA)
