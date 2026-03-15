@@ -7,12 +7,12 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-def _generate_bean_id() -> str:
+def generate_bean_id() -> str:
     return "bean-" + secrets.token_hex(4)
 
 
 class Bean(BaseModel):
-    id: str = Field(default_factory=_generate_bean_id)
+    id: str = Field(default_factory=generate_bean_id)
     title: str
     type: str = "task"
     status: Literal["open", "in_progress", "closed"] = "open"
