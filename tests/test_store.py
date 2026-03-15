@@ -167,6 +167,23 @@ class TestBeanStoreReady:
 
         assert store.ready() == [a, b]
 
+    def test_parent_with_open_children_not_ready(self, store):
+        parent = store.create(Bean(title="Parent"))
+        store.create(Bean(title="Child", parent_id=parent.id))
+
+        assert parent not in store.ready()
+
+    def test_parent_with_all_closed_children_is_ready(self, store):
+        parent = store.create(Bean(title="Parent"))
+        store.create(Bean(title="Child", parent_id=parent.id, status="closed"))
+
+        assert parent in store.ready()
+
+    def test_parent_with_no_children_is_ready(self, store):
+        parent = store.create(Bean(title="Parent"))
+
+        assert parent in store.ready()
+
 
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""

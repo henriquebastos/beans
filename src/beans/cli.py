@@ -50,9 +50,12 @@ def get_store() -> BeanStore:
 
 
 @app.command()
-def create(title: str):
+def create(
+    title: str,
+    parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
+):
     """Create a new bean."""
-    bean = Bean(title=title)
+    bean = Bean(title=title, parent_id=parent)
     with get_store() as store:
         store.create(bean)
 

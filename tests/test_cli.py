@@ -159,6 +159,24 @@ class TestDeleteCommand:
         assert result.exit_code != 0
 
 
+class TestCreateWithParent:
+    """'beans create --parent' sets parent_id on the new bean."""
+
+    def test_create_with_parent(self, runner, dbfile):
+        parent = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Parent"]).output)
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Child", "--parent", parent["id"]])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["parent_id"] == parent["id"]
+
+    def test_create_without_parent(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "No parent"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["parent_id"] is None
+
+
 class TestReadyCommand:
     """'beans ready' lists only unblocked beans."""
 

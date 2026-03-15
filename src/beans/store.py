@@ -140,7 +140,8 @@ class BeanStore:
 
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
-            WITH RECURSIVE blocked(id) AS (
+            WITH RECURSIVE
+            blocked_by_deps(id) AS (
                 SELECT d.to_id
                 FROM deps d
                 JOIN beans b ON d.from_id = b.id
@@ -148,10 +149,17 @@ class BeanStore:
                 UNION
                 SELECT d.to_id
                 FROM deps d
-                JOIN blocked bl ON d.from_id = bl.id
+                JOIN blocked_by_deps bl ON d.from_id = bl.id
                 WHERE d.dep_type = 'blocks'
+            ),
+            blocked_by_children(id) AS (
+                SELECT b.parent_id
+                FROM beans b
+                WHERE b.parent_id IS NOT NULL AND b.status != 'closed'
             )
-            SELECT * FROM beans WHERE id NOT IN (SELECT id FROM blocked)
+            SELECT * FROM beans
+            WHERE id NOT IN (SELECT id FROM blocked_by_deps)
+              AND id NOT IN (SELECT id FROM blocked_by_children)
         """)
         cols = columns(cursor)
         return [Bean(**row(cols, values)) for values in cursor.fetchall()]
