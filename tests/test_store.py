@@ -85,3 +85,53 @@ class TestBeanStoreGetBean:
     def test_get_nonexistent_bean_returns_none(self, store):
         result = store.get_bean("bean-00000000")
         assert result is None
+
+
+class TestBeanStoreUpdateBean:
+    """BeanStore can update bean fields."""
+
+    @pytest.fixture()
+    def store(self):
+        with BeanStore(sqlite3.connect(":memory:")) as s:
+            yield s
+
+    def test_update_title(self, store):
+        bean = Bean(title="Old title")
+        store.create_bean(bean)
+
+        result = store.update_bean(bean.id, {"title": "New title"})
+        assert result.title == "New title"
+
+    def test_update_status(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.update_bean(bean.id, {"status": "in_progress"})
+        assert result.status == "in_progress"
+
+    def test_update_priority(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.update_bean(bean.id, {"priority": 0})
+        assert result.priority == 0
+
+    def test_update_multiple_fields(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.update_bean(bean.id, {"title": "New title", "status": "closed"})
+        assert result.title == "New title"
+        assert result.status == "closed"
+
+    def test_update_persists(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        store.update_bean(bean.id, {"title": "Updated"})
+        result = store.get_bean(bean.id)
+        assert result.title == "Updated"
+
+    def test_update_nonexistent_bean_returns_none(self, store):
+        result = store.update_bean("bean-00000000", {"title": "Nope"})
+        assert result is None

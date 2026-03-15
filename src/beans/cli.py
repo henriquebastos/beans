@@ -67,6 +67,38 @@ def show(bean_id: str):
         typer.echo(format_bean(bean))
 
 
+@app.command()
+def update(
+    bean_id: str,
+    title: Annotated[str | None, typer.Option(help="New title")] = None,
+    status: Annotated[str | None, typer.Option(help="New status")] = None,
+    priority: Annotated[int | None, typer.Option(help="New priority")] = None,
+    body: Annotated[str | None, typer.Option(help="New body")] = None,
+):
+    """Update fields on a bean."""
+    fields = {}
+    if title is not None:
+        fields["title"] = title
+    if status is not None:
+        fields["status"] = status
+    if priority is not None:
+        fields["priority"] = priority
+    if body is not None:
+        fields["body"] = body
+
+    with get_store() as store:
+        bean = store.update_bean(bean_id, fields)
+
+    if bean is None:
+        typer.echo(f"Bean not found: {bean_id}", err=True)
+        raise typer.Exit(code=1)
+
+    if state.get("json"):
+        typer.echo(bean.model_dump_json())
+    else:
+        typer.echo(format_bean(bean))
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""

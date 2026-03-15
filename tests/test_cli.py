@@ -86,3 +86,38 @@ class TestShowCommand:
     def test_show_nonexistent_bean(self, runner, dbfile):
         result = runner.invoke(app, ["--db", dbfile, "show", "bean-00000000"])
         assert result.exit_code != 0
+
+
+class TestUpdateCommand:
+    """'beans update' updates bean fields."""
+
+    def test_update_title(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Old title"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "update", bean_id, "--title", "New title"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["title"] == "New title"
+
+    def test_update_status(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "update", bean_id, "--status", "in_progress"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "in_progress"
+
+    def test_update_priority(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "update", bean_id, "--priority", "0"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["priority"] == 0
+
+    def test_update_nonexistent_bean(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "update", "bean-00000000", "--title", "Nope"])
+        assert result.exit_code != 0

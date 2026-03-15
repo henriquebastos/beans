@@ -85,6 +85,15 @@ class BeanStore:
         cols = columns(cursor)
         return Bean(**row(cols, r))
 
+    def update_bean(self, bean_id: str, fields: dict) -> Bean | None:
+        if not fields:
+            return self.get_bean(bean_id)
+        set_clause = ", ".join(f"{k} = ?" for k in fields)
+        values = [*fields.values(), bean_id]
+        self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
+        self.conn.commit()
+        return self.get_bean(bean_id)
+
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
         cols = columns(cursor)
