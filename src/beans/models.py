@@ -7,6 +7,15 @@ from typing import Literal
 # Pip imports
 from pydantic import BaseModel, Field
 
+
+class BeanNotFoundError(KeyError):
+    pass
+
+
+class AmbiguousIdError(ValueError):
+    pass
+
+
 ID_PREFIX = "bean-"
 ID_BYTES = 4
 

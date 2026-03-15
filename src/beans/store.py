@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import sqlite3
 
 # Internal imports
-from beans.models import Bean, BeanId
+from beans.models import AmbiguousIdError, Bean, BeanId, BeanNotFoundError
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -89,9 +89,9 @@ class BeanStore:
         cols = columns(cursor)
         matches = cursor.fetchall()
         if len(matches) == 0:
-            raise KeyError(f"Bean not found: {bean_id}")
+            raise BeanNotFoundError(bean_id)
         if len(matches) > 1:
-            raise ValueError(f"Ambiguous prefix: {bean_id}")
+            raise AmbiguousIdError(bean_id)
         return Bean(**row(cols, matches[0]))
 
     def close_bean(self, bean_id) -> Bean:
@@ -115,7 +115,7 @@ class BeanStore:
         cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
         self.conn.commit()
         if cursor.rowcount == 0:
-            raise KeyError(f"Bean not found: {bean_id}")
+            raise BeanNotFoundError(bean_id)
 
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")

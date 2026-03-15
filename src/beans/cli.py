@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean, BeanId
+from beans.models import AmbiguousIdError, Bean, BeanId, BeanNotFoundError
 from beans.store import BeanStore
 
 app = typer.Typer()
@@ -63,7 +63,7 @@ def show(bean_id: BeanIdArg):
     try:
         with get_store() as store:
             bean = store.get_bean(bean_id)
-    except (KeyError, ValueError) as e:
+    except (BeanNotFoundError, AmbiguousIdError) as e:
         bean_error(e)
 
     typer.echo(format_bean(bean))
@@ -84,7 +84,7 @@ def update(
     try:
         with get_store() as store:
             bean = store.update_bean(bean_id, fields)
-    except (KeyError, ValueError, ValidationError) as e:
+    except (BeanNotFoundError, AmbiguousIdError, ValueError, ValidationError) as e:
         bean_error(e)
 
     typer.echo(format_bean(bean))
@@ -96,7 +96,7 @@ def close(bean_id: BeanIdArg):
     try:
         with get_store() as store:
             bean = store.close_bean(bean_id)
-    except (KeyError, ValueError) as e:
+    except (BeanNotFoundError, AmbiguousIdError) as e:
         bean_error(e)
 
     typer.echo(format_bean(bean))
@@ -108,7 +108,7 @@ def delete(bean_id: BeanIdArg):
     try:
         with get_store() as store:
             store.delete_bean(bean_id)
-    except (KeyError, ValueError) as e:
+    except BeanNotFoundError as e:
         bean_error(e)
 
     typer.echo(f"Deleted {bean_id}")

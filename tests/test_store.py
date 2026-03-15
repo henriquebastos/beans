@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import Bean, BeanId
+from beans.models import AmbiguousIdError, Bean, BeanId, BeanNotFoundError
 from beans.store import BeanStore
 
 
@@ -83,7 +83,7 @@ class TestBeanStoreGetBean:
         assert result.title == "Fix auth"
 
     def test_get_nonexistent_bean_raises(self, store):
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(BeanNotFoundError):
             store.get_bean(BeanId("bean-00000000"))
 
 
@@ -133,7 +133,7 @@ class TestBeanStoreUpdateBean:
         assert result.title == "Updated"
 
     def test_update_nonexistent_bean_raises(self, store):
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(BeanNotFoundError):
             store.update_bean(BeanId("bean-00000000"), {"title": "Nope"})
 
 
@@ -160,7 +160,7 @@ class TestBeanStoreCloseBean:
         assert result.closed_at is not None
 
     def test_close_nonexistent_bean_raises(self, store):
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(BeanNotFoundError):
             store.close_bean(BeanId("bean-00000000"))
 
 
@@ -177,11 +177,11 @@ class TestBeanStoreDeleteBean:
         store.create_bean(bean)
 
         store.delete_bean(bean.id)
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(BeanNotFoundError):
             store.get_bean(bean.id)
 
     def test_delete_nonexistent_bean_raises(self, store):
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(BeanNotFoundError):
             store.delete_bean(BeanId("bean-00000000"))
 
 
@@ -218,11 +218,11 @@ class TestBeanStorePrefixMatch:
         store.create_bean(Bean(id="bean-aabb0001", title="First"))
         store.create_bean(Bean(id="bean-aabb0002", title="Second"))
 
-        with pytest.raises(ValueError, match="Ambiguous"):
+        with pytest.raises(AmbiguousIdError):
             store.get_bean("bean-aabb")
 
     def test_no_match_raises(self, store):
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(BeanNotFoundError):
             store.get_bean("bean-zzzzzzzz")
 
 
