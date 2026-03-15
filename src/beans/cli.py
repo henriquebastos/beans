@@ -32,24 +32,21 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 
 
-def output(data, json=False) -> list[str]:
+def output(data, json=False) -> str:
     match data, json:
         case Bean(), True:
-            return [data.model_dump_json()]
+            return data.model_dump_json()
         case Bean(), False:
-            return [f"{data.id}  {local_timestamp(data.created_at)}  {data.title}"]
+            return f"{data.id}  {local_timestamp(data.created_at)}  {data.title}"
         case Dep(), True:
-            return [data.model_dump_json()]
+            return data.model_dump_json()
         case Dep(), False:
-            return [f"{data.from_id} {data.dep_type} {data.to_id}"]
+            return f"{data.from_id} {data.dep_type} {data.to_id}"
         case list(), True:
-            return ["[" + ",".join(i.model_dump_json() for i in data) + "]"]
+            return "[" + ",".join(i.model_dump_json() for i in data) + "]"
         case list(), False:
-            result = []
-            for item in data:
-                result.extend(output(item))
-            return result
-    return []
+            return "\n".join(output(item) for item in data)
+    return ""
 
 
 def error(e: Exception):
@@ -72,8 +69,7 @@ def create(
     with get_store() as store:
         store.create(bean)
 
-    for s in output(bean, state["json"]):
-        typer.echo(s)
+    typer.echo(output(bean, state["json"]))
 
 
 @app.command()
@@ -85,8 +81,7 @@ def show(bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(e)
 
-    for s in output(bean, state["json"]):
-        typer.echo(s)
+    typer.echo(output(bean, state["json"]))
 
 
 @app.command()
@@ -114,8 +109,7 @@ def update(
     except BeanNotFoundError as e:
         error(e)
 
-    for s in output(bean, state["json"]):
-        typer.echo(s)
+    typer.echo(output(bean, state["json"]))
 
 
 @app.command()
@@ -128,8 +122,7 @@ def close(bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(e)
 
-    for s in output(bean, state["json"]):
-        typer.echo(s)
+    typer.echo(output(bean, state["json"]))
 
 
 @app.command()
@@ -148,8 +141,7 @@ def list_beans():
     with get_store() as store:
         beans = store.list()
 
-    for s in output(beans, state["json"]):
-        typer.echo(s)
+    typer.echo(output(beans, state["json"]))
 
 
 @app.command()
@@ -158,8 +150,7 @@ def ready():
     with get_store() as store:
         beans = store.ready()
 
-    for s in output(beans, state["json"]):
-        typer.echo(s)
+    typer.echo(output(beans, state["json"]))
 
 
 @dep_app.command("add")
@@ -172,8 +163,7 @@ def dep_add(
     with get_store() as store:
         dep = store.add_dep(from_id, to_id, dep_type=dep_type)
 
-    for s in output(dep, state["json"]):
-        typer.echo(s)
+    typer.echo(output(dep, state["json"]))
 
 
 @dep_app.command("remove")
