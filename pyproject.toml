@@ -1,0 +1,39 @@
+[project]
+name = "beans"
+version = "0.1.0"
+description = "Graph-based issue tracker for AI agent coordination"
+
+authors = [
+    { name = "Henrique Bastos", email = "henrique@bastos.net" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.9",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
+
+[project.scripts]
+beans = "beans.cli:app"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.151.9",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.15.6",
+    "time-machine>=3.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=beans --cov-report=term-missing --no-header -q"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "RUF"]
