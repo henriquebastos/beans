@@ -221,19 +221,26 @@ class TestBeanStoreRelease:
         bean = store.bean.create(Bean(title="Fix auth"))
         store.bean.claim(bean.id, "alice")
 
-        result = store.bean.release(bean.id)
+        result = store.bean.release(bean.id, "alice")
         assert result.assignee is None
         assert result.status == "open"
 
-    def test_release_unclaimed_raises(self, store):
+    def test_release_unclaimed_is_idempotent(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
 
-        with pytest.raises(ValueError, match="not claimed"):
-            store.bean.release(bean.id)
+        result = store.bean.release(bean.id, "alice")
+        assert result == bean
+
+    def test_release_by_different_actor_raises(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.claim(bean.id, "alice")
+
+        with pytest.raises(ValueError, match="claimed by alice"):
+            store.bean.release(bean.id, "bob")
 
     def test_release_nonexistent_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.bean.release(BeanId("bean-00000000"))
+            store.bean.release(BeanId("bean-00000000"), "alice")
 
 
 class TestBeanStoreValidation:

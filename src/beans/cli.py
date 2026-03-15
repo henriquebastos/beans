@@ -155,11 +155,14 @@ def claim(
 
 
 @app.command()
-def release(bean_id: BeanIdArg):
+def release(
+    bean_id: BeanIdArg,
+    actor: Annotated[str, typer.Option(help="Who is releasing the bean")],
+):
     """Release a claimed bean (clear assignee, set status=open)."""
     try:
         with get_store() as store:
-            bean = store.bean.release(bean_id)
+            bean = store.bean.release(bean_id, actor)
     except (BeanNotFoundError, ValueError) as e:
         error(e)
 

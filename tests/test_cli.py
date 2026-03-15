@@ -242,15 +242,23 @@ class TestReleaseCommand:
         _, created = invoke_agent("create", "Fix auth")
         invoke_agent("claim", created["id"], "--actor", "alice")
 
-        exit_code, data = invoke_agent("release", created["id"])
+        exit_code, data = invoke_agent("release", created["id"], "--actor", "alice")
         assert exit_code == 0
         assert data["assignee"] is None
         assert data["status"] == "open"
 
-    def test_release_unclaimed_bean(self, invoke_agent):
+    def test_release_unclaimed_is_idempotent(self, invoke_agent):
         _, created = invoke_agent("create", "Fix auth")
 
-        exit_code, _ = invoke_agent("release", created["id"])
+        exit_code, data = invoke_agent("release", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] is None
+
+    def test_release_by_different_actor(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        invoke_agent("claim", created["id"], "--actor", "alice")
+
+        exit_code, _ = invoke_agent("release", created["id"], "--actor", "bob")
         assert exit_code != 0
 
 

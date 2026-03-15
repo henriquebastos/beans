@@ -132,10 +132,12 @@ class BeanStore(BaseStore):
             )
         return self.get(bean_id)
 
-    def release(self, bean_id) -> Bean:
+    def release(self, bean_id, actor) -> Bean:
         bean = self.get(bean_id)
         if not bean.assignee:
-            raise ValueError(f"Bean {bean_id} not claimed")
+            return bean
+        if bean.assignee != actor:
+            raise ValueError(f"Bean {bean_id} claimed by {bean.assignee}")
         with self.conn:
             self.conn.execute(
                 "UPDATE beans SET assignee = NULL, status = 'open' WHERE id = ?",
