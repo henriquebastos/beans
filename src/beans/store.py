@@ -2,7 +2,7 @@
 import sqlite3
 
 # Internal imports
-from beans.models import AmbiguousIdError, Bean, BeanId, BeanNotFoundError
+from beans.models import Bean, BeanId, BeanNotFoundError
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -85,16 +85,14 @@ class BeanStore:
 
     def get(self, bean_id) -> Bean:
         bean_id = BeanId(bean_id)
-        cursor = self.conn.execute("SELECT * FROM beans WHERE id LIKE ?", (bean_id + "%",))
+        cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
 
-        matches = cursor.fetchall()
-        if len(matches) == 0:
+        match = cursor.fetchone()
+        if match is None:
             raise BeanNotFoundError(bean_id)
-        if len(matches) > 1:
-            raise AmbiguousIdError(bean_id)
 
         cols = columns(cursor)
-        return Bean(**row(cols, matches[0]))
+        return Bean(**row(cols, match))
 
     def update(self, bean_id, **fields) -> int:
         if not fields:

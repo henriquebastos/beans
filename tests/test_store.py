@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import AmbiguousIdError, Bean, BeanId, BeanNotFoundError
+from beans.models import Bean, BeanId, BeanNotFoundError
 from beans.store import BeanStore
 
 
@@ -116,45 +116,12 @@ class TestBeanStoreDeleteBean:
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        store.delete(bean.id)
+        assert store.delete(bean.id) == 1
         with pytest.raises(BeanNotFoundError):
             store.get(bean.id)
 
     def test_delete_nonexistent_returns_zero(self, store):
         assert store.delete(BeanId("bean-00000000")) == 0
-
-
-class TestBeanStorePrefixMatch:
-    """BeanStore resolves id prefixes to full beans."""
-
-    def test_full_id_match(self, store):
-        bean = Bean(id="bean-aabbccdd", title="Fix auth")
-        store.create(bean)
-
-        assert store.get("bean-aabbccdd") == bean
-
-    def test_prefix_match(self, store):
-        bean = Bean(id="bean-aabbccdd", title="Fix auth")
-        store.create(bean)
-
-        assert store.get("bean-aabb") == bean
-
-    def test_short_prefix_match(self, store):
-        bean = Bean(id="bean-aabbccdd", title="Fix auth")
-        store.create(bean)
-
-        assert store.get("bean-aa") == bean
-
-    def test_ambiguous_prefix_raises(self, store):
-        store.create(Bean(id="bean-aabb0001", title="First"))
-        store.create(Bean(id="bean-aabb0002", title="Second"))
-
-        with pytest.raises(AmbiguousIdError):
-            store.get("bean-aabb")
-
-    def test_no_match_raises(self, store):
-        with pytest.raises(BeanNotFoundError):
-            store.get("bean-zzzzzzzz")
 
 
 class TestBeanStoreValidation:
