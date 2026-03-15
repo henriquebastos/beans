@@ -12,10 +12,6 @@ class BeanNotFoundError(KeyError):
     pass
 
 
-class AmbiguousIdError(ValueError):
-    pass
-
-
 ID_PREFIX = "bean-"
 ID_BYTES = 4
 
@@ -37,6 +33,12 @@ class BeanId(str):
         return cls(prefix + fn())
 
 
+class Dep(BaseModel, frozen=True):
+    from_id: BeanId
+    to_id: BeanId
+    dep_type: str = "blocks"
+
+
 class Bean(BaseModel):
     id: BeanId = Field(default_factory=BeanId.generate)
     title: str
@@ -50,3 +52,7 @@ class Bean(BaseModel):
     ref_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     closed_at: datetime | None = None
+
+    @classmethod
+    def fields_validate(cls, **fields):
+        cls.model_validate({"id": "bean-00000000", "title": "validate", **fields})

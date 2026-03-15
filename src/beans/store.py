@@ -1,8 +1,9 @@
 # Python imports
 import sqlite3
+from typing import Self
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -11,6 +12,11 @@ def columns(cursor: sqlite3.Cursor) -> list[str]:
 
 def row(cols: list[str], values: tuple) -> dict:
     return dict(zip(cols, values))
+
+
+def rows(cursor: sqlite3.Cursor):
+    cols = columns(cursor)
+    return (row(cols, values) for values in cursor.fetchall())
 
 
 SCHEMA = """
@@ -31,34 +37,32 @@ CREATE TABLE IF NOT EXISTS beans (
     created_at TEXT NOT NULL,
     closed_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS deps (
+    from_id TEXT NOT NULL REFERENCES beans(id),
+    to_id TEXT NOT NULL REFERENCES beans(id),
+    dep_type TEXT NOT NULL DEFAULT 'blocks',
+    PRIMARY KEY (from_id, to_id)
+);
 """
 
 
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
 
 
-class BeanStore:
+class BaseStore:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
-        self.init_db(conn)
 
     @staticmethod
     def init_db(conn: sqlite3.Connection, schema: str = SCHEMA):
         conn.executescript(schema)
 
     @classmethod
-    def from_path(cls, db_path: str) -> BeanStore:
+    def from_path(cls, db_path: str) -> Self:
         return cls(sqlite3.connect(db_path))
 
-    def close(self):
-        self.conn.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
-
+class BeanStore(BaseStore):
     def create(self, bean: Bean) -> Bean:
         with self.conn:
             self.conn.execute(
@@ -90,8 +94,7 @@ class BeanStore:
         if match is None:
             raise BeanNotFoundError(bean_id)
 
-        cols = columns(cursor)
-        return Bean(**row(cols, match))
+        return Bean(**row(columns(cursor), match))
 
     def update(self, bean_id, **fields) -> int:
         if not fields:
@@ -114,5 +117,71 @@ class BeanStore:
 
     def list(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
-        cols = columns(cursor)
-        return [Bean(**row(cols, values)) for values in cursor.fetchall()]
+        return [Bean(**r) for r in rows(cursor)]
+
+    def ready(self) -> list[Bean]:
+        cursor = self.conn.execute("""
+            WITH RECURSIVE
+            blocked_by_deps(id) AS (
+                SELECT d.to_id
+                FROM deps d
+                JOIN beans b ON d.from_id = b.id
+                WHERE d.dep_type = 'blocks' AND b.status != 'closed'
+                UNION
+                SELECT d.to_id
+                FROM deps d
+                JOIN blocked_by_deps bl ON d.from_id = bl.id
+                WHERE d.dep_type = 'blocks'
+            ),
+            blocked_by_children(id) AS (
+                SELECT b.parent_id
+                FROM beans b
+                WHERE b.parent_id IS NOT NULL AND b.status != 'closed'
+            )
+            SELECT * FROM beans
+            WHERE id NOT IN (SELECT id FROM blocked_by_deps)
+              AND id NOT IN (SELECT id FROM blocked_by_children)
+        """)
+        return [Bean(**r) for r in rows(cursor)]
+
+
+class DepStore(BaseStore):
+    def add(self, dep: Dep) -> Dep:
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
+                (dep.from_id, dep.to_id, dep.dep_type),
+            )
+        return dep
+
+    def list(self, from_id) -> list[Dep]:
+        cursor = self.conn.execute(
+            "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
+            (from_id,),
+        )
+        return [Dep(**r) for r in rows(cursor)]
+
+    def remove(self, from_id, to_id) -> int:
+        with self.conn:
+            cursor = self.conn.execute(
+                "DELETE FROM deps WHERE from_id = ? AND to_id = ?",
+                (from_id, to_id),
+            )
+        return cursor.rowcount
+
+
+class Store(BaseStore):
+    def __init__(self, conn: sqlite3.Connection):
+        super().__init__(conn)
+        self.init_db(conn)
+        self.bean = BeanStore(conn)
+        self.dep = DepStore(conn)
+
+    def close(self):
+        self.conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
