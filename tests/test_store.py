@@ -104,9 +104,8 @@ class TestBeanStoreUpdateBean:
 
         assert store.update(bean.id) == 0
 
-    def test_update_nonexistent_bean_raises(self, store):
-        with pytest.raises(BeanNotFoundError):
-            store.update(BeanId("bean-00000000"), title="Nope")
+    def test_update_nonexistent_returns_zero(self, store):
+        assert store.update(BeanId("bean-00000000"), title="Nope") == 0
 
 
 class TestBeanStoreDeleteBean:
@@ -127,19 +126,12 @@ class TestBeanStoreDeleteBean:
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
 
-    def test_update_invalid_status_rejected(self, store):
+    def test_update_invalid_field_rejected(self, store):
         bean = Bean(title="Fix auth")
         store.create(bean)
 
-        with pytest.raises(ValueError, match="status"):
-            store.update(bean.id, status="deleted")
-
-    def test_update_invalid_priority_rejected(self, store):
-        bean = Bean(title="Fix auth")
-        store.create(bean)
-
-        with pytest.raises(ValueError, match="priority"):
-            store.update(bean.id, priority=5)
+        with pytest.raises(ValueError, match="Invalid fields"):
+            store.update(bean.id, bogus="nope")
 
     def test_invalid_bean_id_rejected(self, store):
         with pytest.raises(ValueError, match="Invalid bean id"):

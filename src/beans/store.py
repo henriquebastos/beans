@@ -83,8 +83,7 @@ class BeanStore:
             )
         return bean
 
-    def get(self, bean_id) -> Bean:
-        bean_id = BeanId(bean_id)
+    def get(self, bean_id: BeanId) -> Bean:
         cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
 
         match = cursor.fetchone()
@@ -101,12 +100,9 @@ class BeanStore:
         if (invalid := fields.keys() - UPDATABLE_FIELDS):
             raise ValueError(f"Invalid fields: {invalid}")
 
-        bean = self.get(bean_id)
-        Bean.model_validate({"id": bean.id, "title": "validate", **fields})
-
         set_clause = ", ".join(f"{k} = ?" for k in fields)
-        values = [*fields.values(), bean.id]
-        
+        values = [*fields.values(), bean_id]
+
         with self.conn:
             cursor = self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
         return cursor.rowcount

@@ -82,10 +82,16 @@ def update(
     fields = {k: v for k, v in all_fields.items() if v is not None}
 
     try:
+        Bean.model_validate({"id": "bean-00000000", "title": "validate", **fields})
+    except ValidationError as e:
+        bean_error(e)
+
+    try:
         with get_store() as store:
-            store.update(bean_id, **fields)
+            if store.update(bean_id, **fields) == 0:
+                raise BeanNotFoundError(bean_id)
             bean = store.get(bean_id)
-    except (BeanNotFoundError, ValueError, ValidationError) as e:
+    except BeanNotFoundError as e:
         bean_error(e)
 
     typer.echo(format_bean(bean))
