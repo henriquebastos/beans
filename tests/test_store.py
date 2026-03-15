@@ -135,3 +135,30 @@ class TestBeanStoreUpdateBean:
     def test_update_nonexistent_bean_returns_none(self, store):
         result = store.update_bean("bean-00000000", {"title": "Nope"})
         assert result is None
+
+
+class TestBeanStoreCloseBean:
+    """BeanStore can close a bean."""
+
+    @pytest.fixture()
+    def store(self):
+        with BeanStore(sqlite3.connect(":memory:")) as s:
+            yield s
+
+    def test_close_sets_status_closed(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.close_bean(bean.id)
+        assert result.status == "closed"
+
+    def test_close_sets_closed_at(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.close_bean(bean.id)
+        assert result.closed_at is not None
+
+    def test_close_nonexistent_bean_returns_none(self, store):
+        result = store.close_bean("bean-00000000")
+        assert result is None

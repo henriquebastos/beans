@@ -1,4 +1,5 @@
 # Python imports
+from datetime import UTC, datetime
 import sqlite3
 
 # Internal imports
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS beans (
     assignee TEXT,
     created_by TEXT,
     ref_id TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    closed_at TEXT
 );
 """
 
@@ -58,8 +60,8 @@ class BeanStore:
     def create_bean(self, bean: Bean) -> Bean:
         self.conn.execute(
             """INSERT INTO beans
-            (id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at, closed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 bean.id,
                 bean.title,
@@ -72,6 +74,7 @@ class BeanStore:
                 bean.created_by,
                 bean.ref_id,
                 bean.created_at.isoformat(),
+                bean.closed_at.isoformat() if bean.closed_at else None,
             ),
         )
         self.conn.commit()
@@ -84,6 +87,9 @@ class BeanStore:
             return None
         cols = columns(cursor)
         return Bean(**row(cols, r))
+
+    def close_bean(self, bean_id: str) -> Bean | None:
+        return self.update_bean(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
 
     def update_bean(self, bean_id: str, fields: dict) -> Bean | None:
         if not fields:

@@ -26,3 +26,4 @@ class Bean(BaseModel):
     created_by: str | None = None
     ref_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    closed_at: datetime | None = None

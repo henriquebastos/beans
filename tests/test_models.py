@@ -31,6 +31,7 @@ class TestBeanDefaults:
             "created_by": None,
             "ref_id": None,
             "created_at": FIXED_TIME,
+            "closed_at": None,
         }
 
     def test_id_format(self):

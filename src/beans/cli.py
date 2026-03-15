@@ -99,6 +99,22 @@ def update(
         typer.echo(format_bean(bean))
 
 
+@app.command()
+def close(bean_id: str):
+    """Close a bean (set status=closed and closed_at)."""
+    with get_store() as store:
+        bean = store.close_bean(bean_id)
+
+    if bean is None:
+        typer.echo(f"Bean not found: {bean_id}", err=True)
+        raise typer.Exit(code=1)
+
+    if state.get("json"):
+        typer.echo(bean.model_dump_json())
+    else:
+        typer.echo(format_bean(bean))
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""

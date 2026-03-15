@@ -121,3 +121,21 @@ class TestUpdateCommand:
     def test_update_nonexistent_bean(self, runner, dbfile):
         result = runner.invoke(app, ["--db", dbfile, "update", "bean-00000000", "--title", "Nope"])
         assert result.exit_code != 0
+
+
+class TestCloseCommand:
+    """'beans close' closes a bean."""
+
+    def test_close_sets_status_closed(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "close", bean_id])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "closed"
+        assert data["closed_at"] is not None
+
+    def test_close_nonexistent_bean(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "close", "bean-00000000"])
+        assert result.exit_code != 0
