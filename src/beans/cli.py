@@ -36,7 +36,7 @@ def format_bean(bean: Bean) -> str:
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
 
 
-def resolve_id(store: BeanStore, bean_id: str) -> str:
+def resolve_id(store: BeanStore, bean_id: str) -> BeanId:
     try:
         return store.resolve_id(BeanId(bean_id))
     except (KeyError, ValueError) as e:
