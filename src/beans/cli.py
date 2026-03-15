@@ -31,6 +31,8 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
 
 
 def format_bean(bean: Bean) -> str:
+    if state.get("json"):
+        return bean.model_dump_json()
     return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
 
 
@@ -40,13 +42,6 @@ def resolve_id(store: BeanStore, bean_id: str) -> str:
     except (KeyError, ValueError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(code=1) from e
-
-
-def output_bean(bean: Bean):
-    if state.get("json"):
-        typer.echo(bean.model_dump_json())
-    else:
-        typer.echo(format_bean(bean))
 
 
 def get_store() -> BeanStore:
@@ -61,7 +56,7 @@ def create(title: str):
     with get_store() as store:
         store.create_bean(bean)
 
-    output_bean(bean)
+    typer.echo(format_bean(bean))
 
 
 @app.command()
@@ -71,7 +66,7 @@ def show(bean_id: str):
         bean_id = resolve_id(store, bean_id)
         bean = store.get_bean(bean_id)
 
-    output_bean(bean)
+    typer.echo(format_bean(bean))
 
 
 @app.command()
@@ -101,7 +96,7 @@ def update(
             typer.echo(str(e), err=True)
             raise typer.Exit(code=1) from e
 
-    output_bean(bean)
+    typer.echo(format_bean(bean))
 
 
 @app.command()
@@ -111,7 +106,7 @@ def close(bean_id: str):
         bean_id = resolve_id(store, bean_id)
         bean = store.close_bean(bean_id)
 
-    output_bean(bean)
+    typer.echo(format_bean(bean))
 
 
 @app.command()
