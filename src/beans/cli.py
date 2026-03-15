@@ -136,6 +136,21 @@ def delete(bean_id: BeanIdArg):
         typer.echo(f"Deleted {bean_id}")
 
 
+@app.command()
+def claim(
+    bean_id: BeanIdArg,
+    actor: Annotated[str, typer.Option(help="Who is claiming the bean")],
+):
+    """Claim a bean (set assignee and status=in_progress)."""
+    try:
+        with get_store() as store:
+            bean = store.bean.claim(bean_id, actor)
+    except (BeanNotFoundError, ValueError) as e:
+        error(e)
+
+    typer.echo(output(bean, state["json"]))
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""

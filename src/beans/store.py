@@ -119,6 +119,17 @@ class BeanStore(BaseStore):
         cursor = self.conn.execute("SELECT * FROM beans")
         return [Bean(**r) for r in rows(cursor)]
 
+    def claim(self, bean_id, actor) -> Bean:
+        bean = self.get(bean_id)
+        if bean.assignee:
+            raise ValueError(f"Bean {bean_id} already claimed by {bean.assignee}")
+        with self.conn:
+            self.conn.execute(
+                "UPDATE beans SET assignee = ?, status = 'in_progress' WHERE id = ?",
+                (actor, bean_id),
+            )
+        return self.get(bean_id)
+
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
             WITH RECURSIVE

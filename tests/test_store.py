@@ -185,6 +185,28 @@ class TestBeanStoreReady:
         assert parent in store.bean.ready()
 
 
+class TestBeanStoreClaim:
+    """BeanStore.claim() atomically assigns a bean."""
+
+    def test_claim_sets_assignee_and_status(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+
+        result = store.bean.claim(bean.id, "alice")
+        assert result.assignee == "alice"
+        assert result.status == "in_progress"
+
+    def test_claim_already_claimed_raises(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.claim(bean.id, "alice")
+
+        with pytest.raises(ValueError, match="already claimed"):
+            store.bean.claim(bean.id, "bob")
+
+    def test_claim_nonexistent_raises(self, store):
+        with pytest.raises(BeanNotFoundError):
+            store.bean.claim(BeanId("bean-00000000"), "alice")
+
+
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
 

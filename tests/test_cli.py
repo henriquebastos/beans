@@ -216,6 +216,25 @@ class TestDepRemoveCommand:
         assert invoke_human("dep", "remove", "bean-aaaaaaaa", "bean-bbbbbbbb") != 0
 
 
+class TestClaimCommand:
+    """'beans claim' atomically claims a bean."""
+
+    def test_claim_sets_assignee(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("claim", created["id"], "--actor", "alice")
+        assert exit_code == 0
+        assert data["assignee"] == "alice"
+        assert data["status"] == "in_progress"
+
+    def test_claim_already_claimed(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        invoke_agent("claim", created["id"], "--actor", "alice")
+
+        exit_code, _ = invoke_agent("claim", created["id"], "--actor", "bob")
+        assert exit_code != 0
+
+
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
 
