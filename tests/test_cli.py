@@ -60,3 +60,29 @@ class TestListCommand:
         assert isinstance(data, list)
         assert len(data) == 1
         assert data[0]["title"] == "Fix auth"
+
+
+class TestShowCommand:
+    """'beans show' displays a single bean by id."""
+
+    def test_show_existing_bean(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "show", bean_id])
+        assert result.exit_code == 0
+        assert "Fix auth" in result.output
+
+    def test_show_json_flag(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean_id = json.loads(result.output)["id"]
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "show", bean_id])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["title"] == "Fix auth"
+        assert data["id"] == bean_id
+
+    def test_show_nonexistent_bean(self, runner, dbfile):
+        result = runner.invoke(app, ["--db", dbfile, "show", "bean-00000000"])
+        assert result.exit_code != 0

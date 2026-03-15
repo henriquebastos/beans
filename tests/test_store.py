@@ -64,3 +64,24 @@ class TestBeanStoreCreateAndList:
         assert result.created_by == bean.created_by
         assert result.ref_id == bean.ref_id
         assert result.created_at == bean.created_at
+
+
+class TestBeanStoreGetBean:
+    """BeanStore can retrieve a single bean by id."""
+
+    @pytest.fixture()
+    def store(self):
+        with BeanStore(sqlite3.connect(":memory:")) as s:
+            yield s
+
+    def test_get_existing_bean(self, store):
+        bean = Bean(title="Fix auth")
+        store.create_bean(bean)
+
+        result = store.get_bean(bean.id)
+        assert result.id == bean.id
+        assert result.title == "Fix auth"
+
+    def test_get_nonexistent_bean_returns_none(self, store):
+        result = store.get_bean("bean-00000000")
+        assert result is None

@@ -77,6 +77,14 @@ class BeanStore:
         self.conn.commit()
         return bean
 
+    def get_bean(self, bean_id: str) -> Bean | None:
+        cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
+        r = cursor.fetchone()
+        if r is None:
+            return None
+        cols = columns(cursor)
+        return Bean(**row(cols, r))
+
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
         cols = columns(cursor)

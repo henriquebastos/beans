@@ -51,6 +51,22 @@ def create(title: str):
         typer.echo(format_bean(bean))
 
 
+@app.command()
+def show(bean_id: str):
+    """Show a single bean by id."""
+    with get_store() as store:
+        bean = store.get_bean(bean_id)
+
+    if bean is None:
+        typer.echo(f"Bean not found: {bean_id}", err=True)
+        raise typer.Exit(code=1)
+
+    if state.get("json"):
+        typer.echo(bean.model_dump_json())
+    else:
+        typer.echo(format_bean(bean))
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""
