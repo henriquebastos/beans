@@ -195,7 +195,14 @@ class TestBeanStoreClaim:
         assert result.assignee == "alice"
         assert result.status == "in_progress"
 
-    def test_claim_already_claimed_raises(self, store):
+    def test_claim_same_actor_is_idempotent(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        first = store.bean.claim(bean.id, "alice")
+        second = store.bean.claim(bean.id, "alice")
+
+        assert first == second
+
+    def test_claim_different_actor_raises(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
         store.bean.claim(bean.id, "alice")
 
