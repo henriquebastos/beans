@@ -1,3 +1,6 @@
+# Python imports
+import sqlite3
+
 # Pip imports
 import pytest
 
@@ -11,7 +14,8 @@ class TestBeanStoreCreateAndList:
 
     @pytest.fixture()
     def store(self):
-        s = BeanStore(":memory:")
+        conn = sqlite3.connect(":memory:")
+        s = BeanStore(conn)
         yield s
         s.close()
 

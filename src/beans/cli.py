@@ -26,7 +26,7 @@ def main(
 
 def _get_store() -> BeanStore:
     db_path = _state.get("db") or "beans.db"
-    return BeanStore(db_path)
+    return BeanStore.from_path(db_path)
 
 
 @app.command()
