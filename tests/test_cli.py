@@ -159,6 +159,54 @@ class TestDeleteCommand:
         assert result.exit_code != 0
 
 
+class TestDepAddCommand:
+    """'beans dep add' adds a dependency between two beans."""
+
+    def test_dep_add(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+
+        result = runner.invoke(app, ["--db", dbfile, "dep", "add", a["id"], b["id"]])
+        assert result.exit_code == 0
+
+    def test_dep_add_custom_type(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+
+        result = runner.invoke(app, ["--db", dbfile, "dep", "add", a["id"], b["id"], "--type", "relates"])
+        assert result.exit_code == 0
+
+    def test_dep_add_json_output(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+
+        result = runner.invoke(app, ["--db", dbfile, "--json", "dep", "add", a["id"], b["id"]])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["from_id"] == a["id"]
+        assert data["to_id"] == b["id"]
+        assert data["dep_type"] == "blocks"
+
+
+class TestDepRemoveCommand:
+    """'beans dep remove' removes a dependency between two beans."""
+
+    def test_dep_remove(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+        runner.invoke(app, ["--db", dbfile, "dep", "add", a["id"], b["id"]])
+
+        result = runner.invoke(app, ["--db", dbfile, "dep", "remove", a["id"], b["id"]])
+        assert result.exit_code == 0
+
+    def test_dep_remove_nonexistent(self, runner, dbfile):
+        a = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task A"]).output)
+        b = json.loads(runner.invoke(app, ["--db", dbfile, "--json", "create", "Task B"]).output)
+
+        result = runner.invoke(app, ["--db", dbfile, "dep", "remove", a["id"], b["id"]])
+        assert result.exit_code != 0
+
+
 class TestInputValidation:
     """Invalid inputs are rejected with clear errors."""
 

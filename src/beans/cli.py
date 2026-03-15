@@ -12,6 +12,8 @@ from beans.models import Bean, BeanId, BeanNotFoundError
 from beans.store import BeanStore
 
 app = typer.Typer()
+dep_app = typer.Typer()
+app.add_typer(dep_app, name="dep")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
 # Global state shared across commands
@@ -131,3 +133,29 @@ def list_beans():
     else:
         for bean in beans:
             typer.echo(line(bean))
+
+
+@dep_app.command("add")
+def dep_add(
+    from_id: BeanIdArg,
+    to_id: BeanIdArg,
+    dep_type: Annotated[str, typer.Option("--type", help="Dependency type")] = "blocks",
+):
+    """Add a dependency between two beans."""
+    with get_store() as store:
+        store.add_dep(from_id, to_id, dep_type=dep_type)
+
+    if state.get("json"):
+        typer.echo(json.dumps({"from_id": str(from_id), "to_id": str(to_id), "dep_type": dep_type}))
+    else:
+        typer.echo(f"{from_id} {dep_type} {to_id}")
+
+
+@dep_app.command("remove")
+def dep_remove(from_id: BeanIdArg, to_id: BeanIdArg):
+    """Remove a dependency between two beans."""
+    with get_store() as store:
+        if store.remove_dep(from_id, to_id) == 0:
+            error(BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
+
+    typer.echo(f"Removed {from_id} -> {to_id}")
