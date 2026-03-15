@@ -211,6 +211,14 @@ def schema():
     typer.echo(json.dumps(schemas))
 
 
+@app.command("export-journal")
+def export_journal():
+    """Export journal entries as JSONL."""
+    with get_store() as store:
+        for line in store.journal.export():
+            typer.echo(line)
+
+
 @dep_app.command("add")
 def dep_add(
     from_id: BeanIdArg,

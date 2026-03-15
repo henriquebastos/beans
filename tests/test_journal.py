@@ -1,4 +1,5 @@
 # Python imports
+import json
 import sqlite3
 
 # Pip imports
@@ -102,3 +103,43 @@ class TestJournalDelete:
 
         entries = journal_entries(store)
         assert "Fix auth" in entries[1]["snapshot"]
+
+
+class TestJournalExport:
+    """store.journal.export() produces JSONL lines."""
+
+    def test_export_empty(self, store):
+        lines = list(store.journal.export())
+        assert lines == []
+
+    def test_export_after_create(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+
+        lines = list(store.journal.export())
+        assert len(lines) == 1
+
+        entry = json.loads(lines[0])
+        assert entry["action"] == "create"
+        assert entry["bean_id"] == bean.id
+        assert "snapshot" in entry
+        assert "created_at" in entry
+
+    def test_export_produces_valid_jsonl(self, store):
+        store.bean.create(Bean(title="First"))
+        store.bean.create(Bean(title="Second"))
+
+        lines = list(store.journal.export())
+        assert len(lines) == 2
+        for line in lines:
+            parsed = json.loads(line)
+            assert "action" in parsed
+
+    def test_export_after_crud_cycle(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.update(bean.id, title="Updated")
+        store.bean.delete(bean.id)
+
+        lines = list(store.journal.export())
+        assert len(lines) == 3
+        actions = [json.loads(line)["action"] for line in lines]
+        assert actions == ["create", "update", "delete"]

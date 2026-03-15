@@ -1,4 +1,5 @@
 # Python imports
+import json
 import sqlite3
 from typing import Self
 
@@ -261,6 +262,19 @@ class DepStore(BaseStore):
         return cursor.rowcount
 
 
+class JournalStore(BaseStore):
+    def export(self):
+        cursor = self.conn.execute("SELECT action, bean_id, snapshot, created_at FROM journal ORDER BY id")
+        for action, bean_id, snapshot, created_at in cursor:
+            entry = {
+                "action": action,
+                "bean_id": bean_id,
+                "snapshot": json.loads(snapshot) if snapshot else None,
+                "created_at": created_at,
+            }
+            yield json.dumps(entry)
+
+
 class DryRunConnection:
     """Wraps a sqlite3.Connection to prevent commits for dry-run mode."""
 
@@ -289,6 +303,7 @@ class Store(BaseStore):
         wrapped = DryRunConnection(conn) if dry_run else conn
         self.bean = BeanStore(wrapped)
         self.dep = DepStore(wrapped)
+        self.journal = JournalStore(conn)
         self.dry_run = dry_run
 
     @classmethod
