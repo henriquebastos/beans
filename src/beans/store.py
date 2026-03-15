@@ -6,6 +6,10 @@ import sqlite3
 # Internal imports
 from beans.models import Bean
 
+def columns(cursor: sqlite3.Cursor) -> list[str]:
+    return [desc[0] for desc in cursor.description]
+
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -68,8 +72,7 @@ class BeanStore:
 
     def list_beans(self) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans")
-        columns = [desc[0] for desc in cursor.description]
-        return [self._row_to_bean(columns, row) for row in cursor.fetchall()]
+        return [self._row_to_bean(columns(cursor), row) for row in cursor.fetchall()]
 
     @staticmethod
     def _row_to_bean(columns: list[str], row: tuple) -> Bean:
