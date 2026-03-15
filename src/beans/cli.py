@@ -165,7 +165,9 @@ def release(
     mine: Annotated[bool, typer.Option("--mine", help="Release all beans claimed by actor")] = False,
 ):
     """Release a claimed bean (clear assignee, set status=open)."""
-    if mine:
+    if mine and bean_id:
+        error(ValueError("Provide a bean id or --mine, not both"))
+    elif mine:
         with get_store() as store:
             beans = store.bean.release_mine(actor)
         typer.echo(output(beans, state["json"]))

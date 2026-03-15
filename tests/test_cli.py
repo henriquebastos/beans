@@ -274,6 +274,11 @@ class TestReleaseCommand:
         assert exit_code == 0
         assert data == []
 
+    def test_release_both_id_and_mine_is_error(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        exit_code, _ = invoke_agent("release", created["id"], "--mine", "--actor", "alice")
+        assert exit_code != 0
+
 
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
