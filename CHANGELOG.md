@@ -3,6 +3,10 @@
 ### 📚 Documentation
 
 - Add release instructions to AGENTS.md
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version to 0.4.1
 ## [0.4.0] - 2026-03-15
 
 ### 🚀 Features
