@@ -2,6 +2,9 @@
 
 **Graph-based issue tracker for AI agent coordination.**
 
+Coding with AI makes developers absurdly productive. Coffee keeps them going.
+Beans keep the whole loop fed. ☕
+
 Beans is a lightweight, embedded issue tracker designed for AI agents to coordinate work
 across tasks. It models issues as nodes in a dependency graph, backed by SQLite, with a
 CLI that both humans and agents can use.
