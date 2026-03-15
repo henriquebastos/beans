@@ -30,10 +30,11 @@ CREATE TABLE IF NOT EXISTS beans (
 class BeanStore:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
-        self._init_db()
+        self.init_db(conn)
 
-    def _init_db(self):
-        self.conn.executescript(SCHEMA)
+    @staticmethod
+    def init_db(conn: sqlite3.Connection, schema: str = SCHEMA):
+        conn.executescript(schema)
 
     @classmethod
     def from_path(cls, db_path: str) -> BeanStore:
