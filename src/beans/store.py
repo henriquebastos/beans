@@ -83,7 +83,8 @@ class BeanStore:
         self.conn.commit()
         return bean
 
-    def resolve_id(self, bean_id: BeanId) -> BeanId:
+    def resolve_id(self, bean_id) -> BeanId:
+        bean_id = BeanId(bean_id)
         cursor = self.conn.execute("SELECT id FROM beans WHERE id LIKE ?", (bean_id + "%",))
         matches = cursor.fetchall()
         if len(matches) == 0:
@@ -92,16 +93,16 @@ class BeanStore:
             raise ValueError(f"Ambiguous prefix: {bean_id}")
         return BeanId(matches[0][0])
 
-    def get_bean(self, bean_id: BeanId) -> Bean:
+    def get_bean(self, bean_id) -> Bean:
         bean_id = self.resolve_id(bean_id)
         cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
         cols = columns(cursor)
         return Bean(**row(cols, cursor.fetchone()))
 
-    def close_bean(self, bean_id: BeanId) -> Bean:
+    def close_bean(self, bean_id) -> Bean:
         return self.update_bean(bean_id, {"status": "closed", "closed_at": datetime.now(UTC).isoformat()})
 
-    def update_bean(self, bean_id: BeanId, fields: dict) -> Bean:
+    def update_bean(self, bean_id, fields: dict) -> Bean:
         bean_id = self.resolve_id(bean_id)
         if not fields:
             return self.get_bean(bean_id)
@@ -115,7 +116,7 @@ class BeanStore:
         self.conn.commit()
         return self.get_bean(bean_id)
 
-    def delete_bean(self, bean_id: BeanId):
+    def delete_bean(self, bean_id):
         bean_id = self.resolve_id(bean_id)
         self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
         self.conn.commit()

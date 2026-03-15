@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean, BeanId
+from beans.models import Bean
 from beans.store import BeanStore
 
 app = typer.Typer()
@@ -61,7 +61,7 @@ def show(bean_id: str):
     """Show a single bean by id."""
     try:
         with get_store() as store:
-            bean = store.get_bean(BeanId(bean_id))
+            bean = store.get_bean(bean_id)
     except (KeyError, ValueError) as e:
         bean_error(e)
 
@@ -89,7 +89,7 @@ def update(
 
     try:
         with get_store() as store:
-            bean = store.update_bean(BeanId(bean_id), fields)
+            bean = store.update_bean(bean_id, fields)
     except (KeyError, ValueError, ValidationError) as e:
         bean_error(e)
 
@@ -101,7 +101,7 @@ def close(bean_id: str):
     """Close a bean (set status=closed and closed_at)."""
     try:
         with get_store() as store:
-            bean = store.close_bean(BeanId(bean_id))
+            bean = store.close_bean(bean_id)
     except (KeyError, ValueError) as e:
         bean_error(e)
 
@@ -113,7 +113,7 @@ def delete(bean_id: str):
     """Delete a bean."""
     try:
         with get_store() as store:
-            store.delete_bean(BeanId(bean_id))
+            store.delete_bean(bean_id)
     except (KeyError, ValueError) as e:
         bean_error(e)
 
