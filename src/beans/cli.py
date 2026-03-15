@@ -1,4 +1,5 @@
 # Python imports
+import datetime
 import json
 from typing import Annotated
 
@@ -24,6 +25,10 @@ def main(
     _state["json"] = json_output
 
 
+def local_timestamp(dt: datetime.datetime) -> str:
+    return dt.astimezone().strftime("%Y-%m-%d %H:%M")
+
+
 def _get_store() -> BeanStore:
     db_path = _state.get("db") or "beans.db"
     return BeanStore.from_path(db_path)
@@ -40,7 +45,7 @@ def create(title: str):
     if _state.get("json"):
         typer.echo(bean.model_dump_json())
     else:
-        typer.echo(f"{bean.id}  {bean.title}")
+        typer.echo(f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}")
 
 
 @app.command("list")
@@ -54,4 +59,4 @@ def list_beans():
         typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
     else:
         for bean in beans:
-            typer.echo(f"{bean.id}  {bean.title}")
+            typer.echo(f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}")
