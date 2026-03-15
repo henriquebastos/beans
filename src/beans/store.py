@@ -4,6 +4,7 @@ import sqlite3
 # Internal imports
 from beans.models import Bean
 
+
 def columns(cursor: sqlite3.Cursor) -> list[str]:
     return [desc[0] for desc in cursor.description]
 

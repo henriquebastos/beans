@@ -1,6 +1,6 @@
 # Python imports
-import json
 from datetime import datetime
+import json
 from typing import Annotated
 
 # Pip imports

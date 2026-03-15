@@ -1,12 +1,11 @@
 # Python imports
-import secrets
 from datetime import UTC, datetime
 from functools import partial
+import secrets
 from typing import Literal
 
 # Pip imports
 from pydantic import BaseModel, Field
-
 
 ID_BYTES = 4
 

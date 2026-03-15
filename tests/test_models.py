@@ -1,10 +1,11 @@
 # Python imports
-import re
 from datetime import UTC, datetime
+import re
+
+from pydantic import ValidationError
 
 # Pip imports
 import pytest
-from pydantic import ValidationError
 
 # Internal imports
 from beans.models import Bean
