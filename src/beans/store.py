@@ -1,5 +1,4 @@
 # Python imports
-import datetime
 import json
 import sqlite3
 
@@ -78,5 +77,4 @@ class BeanStore:
     def _row_to_bean(columns: list[str], row: tuple) -> Bean:
         data = dict(zip(columns, row))
         data["labels"] = json.loads(data["labels"])
-        data["created_at"] = datetime.datetime.fromisoformat(data["created_at"])
         return Bean(**data)
