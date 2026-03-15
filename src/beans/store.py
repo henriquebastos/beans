@@ -118,6 +118,23 @@ END;
 
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
 
+BEAN_COLUMNS = "id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at, closed_at"
+
+INSERT_BEAN = f"INSERT INTO beans ({BEAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+UPDATE_BEAN_ALL = """UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,
+    parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?
+    WHERE id=?"""
+
+
+def bean_values(bean: Bean) -> tuple:
+    return (
+        bean.id, bean.title, bean.type, bean.status, bean.priority,
+        bean.body, bean.parent_id, bean.assignee, bean.created_by,
+        bean.ref_id, bean.created_at.isoformat(),
+        bean.closed_at.isoformat() if bean.closed_at else None,
+    )
+
 
 class BaseStore:
     def __init__(self, conn: sqlite3.Connection):
@@ -134,26 +151,7 @@ class BaseStore:
 class BeanStore(BaseStore):
     def create(self, bean: Bean) -> Bean:
         with self.conn:
-            self.conn.execute(
-                """INSERT INTO beans
-                (id, title, type, status, priority, body,
-                parent_id, assignee, created_by, ref_id, created_at, closed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    bean.id,
-                    bean.title,
-                    bean.type,
-                    bean.status,
-                    bean.priority,
-                    bean.body,
-                    bean.parent_id,
-                    bean.assignee,
-                    bean.created_by,
-                    bean.ref_id,
-                    bean.created_at.isoformat(),
-                    bean.closed_at.isoformat() if bean.closed_at else None,
-                ),
-            )
+            self.conn.execute(INSERT_BEAN, bean_values(bean))
         return bean
 
     def get(self, bean_id: BeanId) -> Bean:
@@ -284,32 +282,11 @@ class JournalStore(BaseStore):
 
                 if action == "create":
                     bean = Bean(**snapshot)
-                    self.conn.execute(
-                        """INSERT INTO beans
-                        (id, title, type, status, priority, body,
-                        parent_id, assignee, created_by, ref_id, created_at, closed_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (
-                            bean.id, bean.title, bean.type, bean.status, bean.priority,
-                            bean.body, bean.parent_id, bean.assignee, bean.created_by,
-                            bean.ref_id, bean.created_at.isoformat(),
-                            bean.closed_at.isoformat() if bean.closed_at else None,
-                        ),
-                    )
+                    self.conn.execute(INSERT_BEAN, bean_values(bean))
                 elif action == "update":
                     bean = Bean(**snapshot)
-                    self.conn.execute(
-                        """UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,
-                        parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?
-                        WHERE id=?""",
-                        (
-                            bean.title, bean.type, bean.status, bean.priority,
-                            bean.body, bean.parent_id, bean.assignee, bean.created_by,
-                            bean.ref_id, bean.created_at.isoformat(),
-                            bean.closed_at.isoformat() if bean.closed_at else None,
-                            bean.id,
-                        ),
-                    )
+                    vals = bean_values(bean)
+                    self.conn.execute(UPDATE_BEAN_ALL, (*vals[1:], vals[0]))
                 elif action == "delete":
                     self.conn.execute("DELETE FROM beans WHERE id=?", (bean_id,))
 
