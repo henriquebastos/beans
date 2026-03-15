@@ -8,7 +8,10 @@ from typing import Callable, Literal
 from pydantic import BaseModel, Field
 
 
-def generate_id(prefix: str = "bean-", fn: Callable[[], str] = partial(secrets.token_hex, 4)) -> str:
+ID_BYTES = 4
+
+
+def generate_id(prefix: str = "bean-", fn: Callable[[], str] = partial(secrets.token_hex, ID_BYTES)) -> str:
     return prefix + fn()
 
 
