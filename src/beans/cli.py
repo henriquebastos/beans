@@ -132,7 +132,8 @@ def delete(bean_id: BeanIdArg):
         if store.delete(bean_id) == 0:
             error(BeanNotFoundError(bean_id))
 
-    typer.echo(f"Deleted {bean_id}")
+    if not state["json"]:
+        typer.echo(f"Deleted {bean_id}")
 
 
 @app.command("list")
@@ -173,4 +174,5 @@ def dep_remove(from_id: BeanIdArg, to_id: BeanIdArg):
         if store.remove_dep(from_id, to_id) == 0:
             error(BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
 
-    typer.echo(f"Removed {from_id} -> {to_id}")
+    if not state["json"]:
+        typer.echo(f"Removed {from_id} -> {to_id}")
