@@ -151,6 +151,18 @@ def claim(
     typer.echo(output(bean, state["json"]))
 
 
+@app.command()
+def release(bean_id: BeanIdArg):
+    """Release a claimed bean (clear assignee, set status=open)."""
+    try:
+        with get_store() as store:
+            bean = store.bean.release(bean_id)
+    except (BeanNotFoundError, ValueError) as e:
+        error(e)
+
+    typer.echo(output(bean, state["json"]))
+
+
 @app.command("list")
 def list_beans():
     """List all beans."""

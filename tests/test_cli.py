@@ -235,6 +235,25 @@ class TestClaimCommand:
         assert exit_code != 0
 
 
+class TestReleaseCommand:
+    """'beans release' releases a claimed bean."""
+
+    def test_release_clears_assignee(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        invoke_agent("claim", created["id"], "--actor", "alice")
+
+        exit_code, data = invoke_agent("release", created["id"])
+        assert exit_code == 0
+        assert data["assignee"] is None
+        assert data["status"] == "open"
+
+    def test_release_unclaimed_bean(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, _ = invoke_agent("release", created["id"])
+        assert exit_code != 0
+
+
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
 

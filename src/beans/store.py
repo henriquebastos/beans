@@ -130,6 +130,17 @@ class BeanStore(BaseStore):
             )
         return self.get(bean_id)
 
+    def release(self, bean_id) -> Bean:
+        bean = self.get(bean_id)
+        if not bean.assignee:
+            raise ValueError(f"Bean {bean_id} not claimed")
+        with self.conn:
+            self.conn.execute(
+                "UPDATE beans SET assignee = NULL, status = 'open' WHERE id = ?",
+                (bean_id,),
+            )
+        return self.get(bean_id)
+
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
             WITH RECURSIVE

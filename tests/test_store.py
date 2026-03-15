@@ -207,6 +207,28 @@ class TestBeanStoreClaim:
             store.bean.claim(BeanId("bean-00000000"), "alice")
 
 
+class TestBeanStoreRelease:
+    """BeanStore.release() clears assignee and sets status=open."""
+
+    def test_release_clears_assignee(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+        store.bean.claim(bean.id, "alice")
+
+        result = store.bean.release(bean.id)
+        assert result.assignee is None
+        assert result.status == "open"
+
+    def test_release_unclaimed_raises(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+
+        with pytest.raises(ValueError, match="not claimed"):
+            store.bean.release(bean.id)
+
+    def test_release_nonexistent_raises(self, store):
+        with pytest.raises(BeanNotFoundError):
+            store.bean.release(BeanId("bean-00000000"))
+
+
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
 
