@@ -1,6 +1,5 @@
 # Python imports
 from datetime import UTC, datetime
-import json
 from typing import Annotated
 
 # Pip imports
@@ -8,7 +7,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep
 from beans.store import BeanStore
 
 app = typer.Typer()
@@ -33,10 +32,24 @@ def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 
 
-def line(bean: Bean) -> str:
-    if state.get("json"):
-        return bean.model_dump_json()
-    return f"{bean.id}  {local_timestamp(bean.created_at)}  {bean.title}"
+def output(data, json=False) -> list[str]:
+    match data, json:
+        case Bean(), True:
+            return [data.model_dump_json()]
+        case Bean(), False:
+            return [f"{data.id}  {local_timestamp(data.created_at)}  {data.title}"]
+        case Dep(), True:
+            return [data.model_dump_json()]
+        case Dep(), False:
+            return [f"{data.from_id} {data.dep_type} {data.to_id}"]
+        case list(), True:
+            return ["[" + ",".join(i.model_dump_json() for i in data) + "]"]
+        case list(), False:
+            result = []
+            for item in data:
+                result.extend(output(item))
+            return result
+    return []
 
 
 def error(e: Exception):
@@ -59,7 +72,8 @@ def create(
     with get_store() as store:
         store.create(bean)
 
-    typer.echo(line(bean))
+    for s in output(bean, state["json"]):
+        typer.echo(s)
 
 
 @app.command()
@@ -71,7 +85,8 @@ def show(bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(e)
 
-    typer.echo(line(bean))
+    for s in output(bean, state["json"]):
+        typer.echo(s)
 
 
 @app.command()
@@ -99,7 +114,8 @@ def update(
     except BeanNotFoundError as e:
         error(e)
 
-    typer.echo(line(bean))
+    for s in output(bean, state["json"]):
+        typer.echo(s)
 
 
 @app.command()
@@ -112,7 +128,8 @@ def close(bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(e)
 
-    typer.echo(line(bean))
+    for s in output(bean, state["json"]):
+        typer.echo(s)
 
 
 @app.command()
@@ -131,11 +148,8 @@ def list_beans():
     with get_store() as store:
         beans = store.list()
 
-    if state.get("json"):
-        typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
-    else:
-        for bean in beans:
-            typer.echo(line(bean))
+    for s in output(beans, state["json"]):
+        typer.echo(s)
 
 
 @app.command()
@@ -144,11 +158,8 @@ def ready():
     with get_store() as store:
         beans = store.ready()
 
-    if state.get("json"):
-        typer.echo(json.dumps([b.model_dump(mode="json") for b in beans]))
-    else:
-        for bean in beans:
-            typer.echo(line(bean))
+    for s in output(beans, state["json"]):
+        typer.echo(s)
 
 
 @dep_app.command("add")
@@ -161,10 +172,8 @@ def dep_add(
     with get_store() as store:
         dep = store.add_dep(from_id, to_id, dep_type=dep_type)
 
-    if state.get("json"):
-        typer.echo(dep.model_dump_json())
-    else:
-        typer.echo(f"{dep.from_id} {dep.dep_type} {dep.to_id}")
+    for s in output(dep, state["json"]):
+        typer.echo(s)
 
 
 @dep_app.command("remove")
