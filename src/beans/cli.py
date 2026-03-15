@@ -12,6 +12,7 @@ from beans.models import Bean, BeanId
 from beans.store import BeanStore
 
 app = typer.Typer()
+BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
 # Global state shared across commands
 state: dict = {}
@@ -57,7 +58,7 @@ def create(title: str):
 
 
 @app.command()
-def show(bean_id: Annotated[str, typer.Argument(parser=BeanId)]):
+def show(bean_id: BeanIdArg):
     """Show a single bean by id."""
     try:
         with get_store() as store:
@@ -70,7 +71,7 @@ def show(bean_id: Annotated[str, typer.Argument(parser=BeanId)]):
 
 @app.command()
 def update(
-    bean_id: Annotated[str, typer.Argument(parser=BeanId)],
+    bean_id: BeanIdArg,
     title: Annotated[str | None, typer.Option(help="New title")] = None,
     status: Annotated[str | None, typer.Option(help="New status")] = None,
     priority: Annotated[int | None, typer.Option(help="New priority")] = None,
@@ -97,7 +98,7 @@ def update(
 
 
 @app.command()
-def close(bean_id: Annotated[str, typer.Argument(parser=BeanId)]):
+def close(bean_id: BeanIdArg):
     """Close a bean (set status=closed and closed_at)."""
     try:
         with get_store() as store:
@@ -109,7 +110,7 @@ def close(bean_id: Annotated[str, typer.Argument(parser=BeanId)]):
 
 
 @app.command()
-def delete(bean_id: Annotated[str, typer.Argument(parser=BeanId)]):
+def delete(bean_id: BeanIdArg):
     """Delete a bean."""
     try:
         with get_store() as store:
