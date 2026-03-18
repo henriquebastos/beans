@@ -184,6 +184,19 @@ class TestBeanStoreReady:
 
         assert c in store.bean.ready()
 
+    def test_fan_in_partial_close_still_blocked(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        c = store.bean.create(Bean(title="Task C"))
+        store.dep.add(Dep(from_id=a.id, to_id=c.id))
+        store.dep.add(Dep(from_id=b.id, to_id=c.id))
+
+        store.bean.update(a.id, status="closed")
+        assert c not in store.bean.ready()
+
+        store.bean.update(b.id, status="closed")
+        assert c in store.bean.ready()
+
     def test_parent_with_open_children_not_ready(self, store):
         parent = store.bean.create(Bean(title="Parent"))
         store.bean.create(Bean(title="Child", parent_id=parent.id))
