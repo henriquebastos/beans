@@ -46,6 +46,16 @@ class TestCreateCommand:
         assert data["title"] == "Fix auth"
         assert data["status"] == "open"
 
+    def test_create_with_body(self, invoke_agent):
+        exit_code, data = invoke_agent("create", "Fix auth", "--body", "Detailed description")
+        assert exit_code == 0
+        assert data["body"] == "Detailed description"
+
+    def test_create_without_body_defaults_empty(self, invoke_agent):
+        exit_code, data = invoke_agent("create", "Fix auth")
+        assert exit_code == 0
+        assert data["body"] == ""
+
 
 class TestListCommand:
     """'beans list' lists all beans."""
