@@ -1,6 +1,32 @@
+# Python imports
+from datetime import UTC, datetime
+
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, BeanNotFoundError, BeanUpdate
 from beans.store import BeanStore
+
+
+def create_bean(store: BeanStore, title, body="", parent_id=None) -> Bean:
+    bean = Bean(title=title, body=body, parent_id=parent_id)
+    store.create(bean)
+    return bean
+
+
+def update_bean(store: BeanStore, bean_id, **fields) -> Bean:
+    validated = BeanUpdate(**fields)
+    clean = validated.model_dump(exclude_none=True)
+    if store.update(bean_id, **clean) == 0:
+        raise BeanNotFoundError(bean_id)
+    return store.get(bean_id)
+
+
+def close_bean(store: BeanStore, bean_id, reason=None) -> Bean:
+    fields = {"status": "closed", "closed_at": datetime.now(UTC).isoformat()}
+    if reason:
+        fields["close_reason"] = reason
+    if store.update(bean_id, **fields) == 0:
+        raise BeanNotFoundError(bean_id)
+    return store.get(bean_id)
 
 
 def claim_bean(store: BeanStore, bean_id, actor) -> Bean:
