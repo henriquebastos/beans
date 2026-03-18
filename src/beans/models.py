@@ -52,7 +52,7 @@ class Dep(BaseModel, frozen=True):
 class Bean(BaseModel):
     id: BeanId = Field(default_factory=BeanId.generate)
     title: str
-    type: str = "task"
+    type: Literal["task", "bug", "epic"] = "task"
     status: Literal["open", "in_progress", "closed"] = "open"
     priority: int = Field(default=2, ge=0, le=4)
     body: str = ""
