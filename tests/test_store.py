@@ -167,6 +167,15 @@ class TestBeanStoreReady:
 
         assert store.bean.ready() == [a, b]
 
+    def test_closed_intermediate_does_not_propagate_blocking(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B", status="closed"))
+        c = store.bean.create(Bean(title="Task C"))
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        store.dep.add(Dep(from_id=b.id, to_id=c.id))
+
+        assert c in store.bean.ready()
+
     def test_parent_with_open_children_not_ready(self, store):
         parent = store.bean.create(Bean(title="Parent"))
         store.bean.create(Bean(title="Child", parent_id=parent.id))

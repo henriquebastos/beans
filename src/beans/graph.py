@@ -14,7 +14,12 @@ def blocked_ids(beans: list[Bean], deps: list[Dep]) -> set[str]:
     while changed:
         changed = False
         for dep in deps:
-            if dep.dep_type == "blocks" and dep.from_id in blocked and dep.to_id not in blocked:
+            if (
+                dep.dep_type == "blocks"
+                and dep.from_id in open_ids
+                and dep.from_id in blocked
+                and dep.to_id not in blocked
+            ):
                 blocked.add(dep.to_id)
                 changed = True
 

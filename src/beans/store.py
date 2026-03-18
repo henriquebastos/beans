@@ -229,7 +229,8 @@ class BeanStore(BaseStore):
                 SELECT d.to_id
                 FROM deps d
                 JOIN blocked_by_deps bl ON d.from_id = bl.id
-                WHERE d.dep_type = 'blocks'
+                JOIN beans b ON d.from_id = b.id
+                WHERE d.dep_type = 'blocks' AND b.status != 'closed'
             ),
             blocked_by_children(id) AS (
                 SELECT b.parent_id
