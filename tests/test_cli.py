@@ -115,6 +115,14 @@ class TestUpdateCommand:
         assert exit_code == 0
         assert data["priority"] == 0
 
+    def test_update_parent(self, invoke_agent):
+        _, parent = invoke_agent("create", "Parent")
+        _, child = invoke_agent("create", "Child")
+
+        exit_code, data = invoke_agent("update", child["id"], "--parent", parent["id"])
+        assert exit_code == 0
+        assert data["parent_id"] == parent["id"]
+
     def test_update_nonexistent_bean(self, invoke_human):
         assert invoke_human("update", "bean-00000000", "--title", "Nope") != 0
 
