@@ -184,6 +184,14 @@ class TestBeanStoreReady:
 
         assert c in store.bean.ready()
 
+    def test_ready_ordered_by_priority(self, store):
+        low = store.bean.create(Bean(title="Low", priority=3))
+        high = store.bean.create(Bean(title="High", priority=0))
+        mid = store.bean.create(Bean(title="Mid", priority=2))
+
+        result = store.bean.ready()
+        assert result == [high, mid, low]
+
     def test_fan_in_partial_close_still_blocked(self, store):
         a = store.bean.create(Bean(title="Task A"))
         b = store.bean.create(Bean(title="Task B"))
