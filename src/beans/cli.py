@@ -1,5 +1,5 @@
 # Python imports
-from datetime import UTC, datetime
+from datetime import datetime
 import json
 from typing import Annotated, NamedTuple
 
@@ -8,8 +8,8 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.api import claim_bean, release_bean, release_mine
-from beans.models import Bean, BeanId, BeanNotFoundError, BeanUpdate, Dep, Error
+from beans.api import claim_bean, close_bean, create_bean, release_bean, release_mine, update_bean
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
 
@@ -92,9 +92,8 @@ def create(
 ):
     """Create a new bean."""
     cfg = ctx.obj
-    bean = Bean(title=title, body=body, parent_id=parent)
     with get_store(cfg) as store:
-        store.bean.create(bean)
+        bean = create_bean(store.bean, title, body=body, parent_id=parent)
 
     typer.echo(output(bean, cfg.json))
 
@@ -124,19 +123,11 @@ def update(
 ):
     """Update fields on a bean."""
     cfg = ctx.obj
-    try:
-        validated = BeanUpdate(title=title, status=status, priority=priority, body=body, parent_id=parent)
-    except ValidationError as e:
-        error(cfg, e)
-
-    fields = validated.model_dump(exclude_none=True)
-
+    fields = {"title": title, "status": status, "priority": priority, "body": body, "parent_id": parent}
     try:
         with get_store(cfg) as store:
-            if store.bean.update(bean_id, **fields) == 0:
-                raise BeanNotFoundError(bean_id)
-            bean = store.bean.get(bean_id)
-    except BeanNotFoundError as e:
+            bean = update_bean(store.bean, bean_id, **{k: v for k, v in fields.items() if v is not None})
+    except (BeanNotFoundError, ValidationError) as e:
         error(cfg, e)
 
     typer.echo(output(bean, cfg.json))
@@ -150,13 +141,9 @@ def close(
 ):
     """Close a bean (set status=closed and closed_at)."""
     cfg = ctx.obj
-    fields = {"status": "closed", "closed_at": datetime.now(UTC).isoformat()}
-    if reason:
-        fields["close_reason"] = reason
     try:
         with get_store(cfg) as store:
-            store.bean.update(bean_id, **fields)
-            bean = store.bean.get(bean_id)
+            bean = close_bean(store.bean, bean_id, reason=reason)
     except BeanNotFoundError as e:
         error(cfg, e)
 
