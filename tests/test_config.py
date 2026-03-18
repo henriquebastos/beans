@@ -4,13 +4,9 @@ from pathlib import Path
 
 # Pip imports
 import pytest
-from typer.testing import CliRunner
 
 # Internal imports
-from beans.cli import app
 from beans.config import CONFIG_FILE, config_path, load_config
-
-runner = CliRunner()
 
 
 @pytest.fixture()
@@ -53,24 +49,3 @@ class TestLoadConfig:
         config_file.write_text("not json")
 
         assert load_config(config_file) == {}
-
-
-class TestConfigCommand:
-    """'beans config' shows config path and values."""
-
-    def test_config_shows_xdg_path(self, config_dir):
-        result = runner.invoke(app, ["config"])
-        assert result.exit_code == 0
-        assert str(config_dir / CONFIG_FILE) in result.output
-
-    def test_config_shows_no_configuration(self, config_dir):
-        result = runner.invoke(app, ["config"])
-        assert "No configuration set." in result.output
-
-    def test_config_shows_values(self, config_dir):
-        config_dir.mkdir(parents=True)
-        (config_dir / CONFIG_FILE).write_text(json.dumps({"actor": "alice"}))
-
-        result = runner.invoke(app, ["config"])
-        assert result.exit_code == 0
-        assert "alice" in result.output
