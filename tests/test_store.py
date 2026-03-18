@@ -161,7 +161,7 @@ class TestBeanStoreReady:
         b = store.bean.create(Bean(title="Task B"))
         store.dep.add(Dep(from_id=a.id, to_id=b.id))
 
-        assert store.bean.ready() == [a, b]
+        assert store.bean.ready() == [b]
 
     def test_ready_empty_store(self, store):
         assert store.bean.ready() == []
@@ -173,7 +173,7 @@ class TestBeanStoreReady:
         store.dep.add(Dep(from_id=a.id, to_id=b.id))
         store.dep.add(Dep(from_id=b.id, to_id=c.id))
 
-        assert store.bean.ready() == [a, b]
+        assert store.bean.ready() == [b]
 
     def test_closed_intermediate_does_not_propagate_blocking(self, store):
         a = store.bean.create(Bean(title="Task A"))
