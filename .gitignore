@@ -34,3 +34,4 @@ dist/
 
 # Beans runtime
 beans.db
+.beans/

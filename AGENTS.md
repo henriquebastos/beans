@@ -259,9 +259,54 @@ uv run ruff check src/ tests/
 The release workflow runs tests, publishes to PyPI, and updates the Homebrew formula.
 The package is `magic-beans` on PyPI, but the CLI is `beans` and the import is `import beans`.
 
+## Task Tracking with Beans
+
+This project uses beans itself for task tracking. Beans is the primary tool for managing
+work — use it to create, track, and close all tasks, bugs, and epics.
+
+### Before starting work
+
+```bash
+uv run beans ready              # see what's unblocked
+uv run beans show <id>          # read the full bean before starting
+```
+
+### Self-contained beans
+
+Every bean body must contain enough context for someone with no prior conversation to
+pick it up. Include: what needs to change, why, which files are involved, and what
+"done" looks like. Never rely on thread context or conversation history.
+
+### Working on a task
+
+```bash
+uv run beans claim <id> --actor <name>   # claim before starting
+# ... do the work ...
+uv run beans close <id>                  # close when done
+```
+
+### Creating beans
+
+Use `--body` to describe the task fully. Use `--parent` for subtasks. Use `beans dep add`
+to express ordering constraints. Choose meaningful types (task, bug, epic).
+
+```bash
+uv run beans create "Title" --body "Full description of what and why"
+uv run beans create "Subtask" --parent <epic-id>
+uv run beans dep add <blocker-id> <blocked-id>
+```
+
+### Bean hygiene
+
+- One bean per deliverable change
+- Close beans when done, don't leave them dangling
+- If a bean is no longer needed, close it with an update explaining why
+- If you discover new work while working on a bean, create a new bean for it
+
 ## Tools
 
 - **uv** — package management, running, building
+- **beans** — task tracking (`uv run beans ready`, `uv run beans list`)
 - **pytest** — testing with coverage (`--cov=beans`)
 - **ruff** — linting (line-length=120, select E,F,I,N,UP,RUF)
 - **git-cliff** — changelog generation from conventional commits
