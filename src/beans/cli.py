@@ -112,10 +112,11 @@ def init(dirname=BEANS_DIR, db_name=DB_NAME, agents_md=AGENTS_MD):
 @app.command()
 def create(
     title: str,
+    body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
 ):
     """Create a new bean."""
-    bean = Bean(title=title, parent_id=parent)
+    bean = Bean(title=title, body=body, parent_id=parent)
     with get_store() as store:
         store.bean.create(bean)
 
