@@ -64,6 +64,17 @@ class TestReady:
 
         assert ready([a, b, c], deps) == [a, b]
 
+    def test_closed_intermediate_does_not_propagate_blocking(self):
+        a = make_bean("a")
+        b = make_bean("b", status="closed")
+        c = make_bean("c")
+        deps = [
+            Dep(from_id=a.id, to_id=b.id),
+            Dep(from_id=b.id, to_id=c.id),
+        ]
+
+        assert c in ready([a, b, c], deps)
+
     def test_parent_with_open_children_not_ready(self):
         parent = make_bean("p")
         child = make_bean("c")
