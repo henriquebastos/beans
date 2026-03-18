@@ -166,19 +166,10 @@ def bean_values(bean: Bean) -> tuple:
     )
 
 
-class BaseStore:
-    def __init__(self, conn: sqlite3.Connection):
+class BeanStore:
+    def __init__(self, conn):
         self.conn = conn
 
-    @staticmethod
-    def init_db(conn: sqlite3.Connection, schema: str = SCHEMA):
-        conn.executescript(schema)
-
-    @classmethod
-    def from_path(cls, db_path: str) -> Self:
-        return cls(sqlite3.connect(db_path))
-
-class BeanStore(BaseStore):
     def create(self, bean: Bean) -> Bean:
         with self.conn:
             self.conn.execute(INSERT_BEAN, bean_values(bean))
@@ -271,7 +262,10 @@ class BeanStore(BaseStore):
         return [Bean(**r) for r in rows(cursor)]
 
 
-class DepStore(BaseStore):
+class DepStore:
+    def __init__(self, conn):
+        self.conn = conn
+
     def add(self, dep: Dep) -> Dep:
         with self.conn:
             self.conn.execute(
@@ -296,7 +290,10 @@ class DepStore(BaseStore):
         return cursor.rowcount
 
 
-class JournalStore(BaseStore):
+class JournalStore:
+    def __init__(self, conn):
+        self.conn = conn
+
     def export(self):
         cursor = self.conn.execute("SELECT action, bean_id, snapshot, created_at FROM journal ORDER BY id")
         for action, bean_id, snapshot, created_at in cursor:
@@ -358,10 +355,10 @@ class DryRunConnection:
         self.conn.rollback()
 
 
-class Store(BaseStore):
+class Store:
     def __init__(self, conn: sqlite3.Connection, dry_run=False):
-        super().__init__(conn)
-        self.init_db(conn)
+        self.conn = conn
+        conn.executescript(SCHEMA)
         wrapped = DryRunConnection(conn) if dry_run else conn
         self.bean = BeanStore(wrapped)
         self.dep = DepStore(wrapped)
