@@ -1,7 +1,7 @@
 # Python imports
 from datetime import UTC, datetime
 import json
-from typing import Annotated
+from typing import Annotated, NamedTuple
 
 # Pip imports
 from pydantic import ValidationError
@@ -18,19 +18,21 @@ dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
-# Global state shared across commands
-state: dict = {}
+
+class Config(NamedTuple):
+    db: str | None = None
+    json: bool = False
+    dry_run: bool = False
 
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
 ):
-    state["db"] = db
-    state["json"] = json_output
-    state["dry_run"] = dry_run
+    ctx.obj = Config(db=db, json=json_output, dry_run=dry_run)
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
@@ -54,24 +56,24 @@ def output(data, json=False) -> str:
     return ""
 
 
-def error(e: Exception):
+def error(cfg: Config, e: Exception):
     err = Error(message=str(e))
-    if state.get("json"):
+    if cfg.json:
         typer.echo(err.model_dump_json())
     else:
         typer.echo(err.message, err=True)
     raise typer.Exit(code=1) from e
 
 
-def get_store(db_name=DB_NAME) -> Store:
-    if state.get("db"):
-        db_path = state["db"]
+def get_store(cfg: Config, db_name=DB_NAME) -> Store:
+    if cfg.db:
+        db_path = cfg.db
     else:
         try:
             db_path = str(find_beans_dir() / db_name)
         except FileNotFoundError:
             db_path = db_name
-    return Store.from_path(db_path, dry_run=state.get("dry_run", False))
+    return Store.from_path(db_path, dry_run=cfg.dry_run)
 
 
 @app.command()
@@ -83,32 +85,36 @@ def init():
 
 @app.command()
 def create(
+    ctx: typer.Context,
     title: str,
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
 ):
     """Create a new bean."""
+    cfg = ctx.obj
     bean = Bean(title=title, body=body, parent_id=parent)
-    with get_store() as store:
+    with get_store(cfg) as store:
         store.bean.create(bean)
 
-    typer.echo(output(bean, state["json"]))
+    typer.echo(output(bean, cfg.json))
 
 
 @app.command()
-def show(bean_id: BeanIdArg):
+def show(ctx: typer.Context, bean_id: BeanIdArg):
     """Show a single bean by id."""
+    cfg = ctx.obj
     try:
-        with get_store() as store:
+        with get_store(cfg) as store:
             bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
-        error(e)
+        error(cfg, e)
 
-    typer.echo(output(bean, state["json"]))
+    typer.echo(output(bean, cfg.json))
 
 
 @app.command()
 def update(
+    ctx: typer.Context,
     bean_id: BeanIdArg,
     title: Annotated[str | None, typer.Option(help="New title")] = None,
     status: Annotated[str | None, typer.Option(help="New status")] = None,
@@ -117,109 +123,119 @@ def update(
     parent: Annotated[str | None, typer.Option(help="New parent bean id", parser=BeanId)] = None,
 ):
     """Update fields on a bean."""
+    cfg = ctx.obj
     try:
         validated = BeanUpdate(title=title, status=status, priority=priority, body=body, parent_id=parent)
     except ValidationError as e:
-        error(e)
+        error(cfg, e)
 
     fields = validated.model_dump(exclude_none=True)
 
     try:
-        with get_store() as store:
+        with get_store(cfg) as store:
             if store.bean.update(bean_id, **fields) == 0:
                 raise BeanNotFoundError(bean_id)
             bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
-        error(e)
+        error(cfg, e)
 
-    typer.echo(output(bean, state["json"]))
+    typer.echo(output(bean, cfg.json))
 
 
 @app.command()
 def close(
+    ctx: typer.Context,
     bean_id: BeanIdArg,
     reason: Annotated[str | None, typer.Option(help="Reason for closing")] = None,
 ):
     """Close a bean (set status=closed and closed_at)."""
+    cfg = ctx.obj
     fields = {"status": "closed", "closed_at": datetime.now(UTC).isoformat()}
     if reason:
         fields["close_reason"] = reason
     try:
-        with get_store() as store:
+        with get_store(cfg) as store:
             store.bean.update(bean_id, **fields)
             bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
-        error(e)
+        error(cfg, e)
 
-    typer.echo(output(bean, state["json"]))
+    typer.echo(output(bean, cfg.json))
 
 
 @app.command()
-def delete(bean_id: BeanIdArg):
+def delete(ctx: typer.Context, bean_id: BeanIdArg):
     """Delete a bean."""
-    with get_store() as store:
+    cfg = ctx.obj
+    with get_store(cfg) as store:
         if store.bean.delete(bean_id) == 0:
-            error(BeanNotFoundError(bean_id))
+            error(cfg, BeanNotFoundError(bean_id))
 
-    if not state["json"]:
+    if not cfg.json:
         typer.echo(f"Deleted {bean_id}")
 
 
 @app.command()
 def claim(
+    ctx: typer.Context,
     bean_id: BeanIdArg,
     actor: Annotated[str, typer.Option(help="Who is claiming the bean")],
 ):
     """Claim a bean (set assignee and status=in_progress)."""
+    cfg = ctx.obj
     try:
-        with get_store() as store:
+        with get_store(cfg) as store:
             bean = claim_bean(store.bean, bean_id, actor)
     except (BeanNotFoundError, ValueError) as e:
-        error(e)
+        error(cfg, e)
 
-    typer.echo(output(bean, state["json"]))
+    typer.echo(output(bean, cfg.json))
 
 
 @app.command()
 def release(
+    ctx: typer.Context,
     bean_id: Annotated[str | None, typer.Argument(parser=BeanId)] = None,
     actor: Annotated[str, typer.Option(help="Who is releasing the bean")] = "",
     mine: Annotated[bool, typer.Option("--mine", help="Release all beans claimed by actor")] = False,
 ):
     """Release a claimed bean (clear assignee, set status=open)."""
+    cfg = ctx.obj
     if mine and bean_id:
-        error(ValueError("Provide a bean id or --mine, not both"))
+        error(cfg, ValueError("Provide a bean id or --mine, not both"))
     elif mine:
-        with get_store() as store:
+        with get_store(cfg) as store:
             beans = release_mine(store.bean, actor)
-        typer.echo(output(beans, state["json"]))
+        typer.echo(output(beans, cfg.json))
     elif bean_id:
         try:
-            with get_store() as store:
+            with get_store(cfg) as store:
                 bean = release_bean(store.bean, bean_id, actor)
         except (BeanNotFoundError, ValueError) as e:
-            error(e)
-        typer.echo(output(bean, state["json"]))
+            error(cfg, e)
+        typer.echo(output(bean, cfg.json))
     else:
-        error(ValueError("Provide a bean id or --mine"))
+        error(cfg, ValueError("Provide a bean id or --mine"))
 
 
 @app.command("list")
-def list_beans():
+def list_beans(ctx: typer.Context):
     """List all beans."""
-    with get_store() as store:
+    cfg = ctx.obj
+    with get_store(cfg) as store:
         beans = store.bean.list()
 
-    typer.echo(output(beans, state["json"]))
+    typer.echo(output(beans, cfg.json))
 
 
 @app.command()
-def ready():
+def ready(ctx: typer.Context):
     """List only unblocked beans."""
-    with get_store() as store:
+    cfg = ctx.obj
+    with get_store(cfg) as store:
         beans = store.bean.ready()
 
-    typer.echo(output(beans, state["json"]))
+    typer.echo(output(beans, cfg.json))
 
 
 @app.command()
@@ -234,20 +250,22 @@ def schema():
 
 
 @app.command("export-journal")
-def export_journal():
+def export_journal(ctx: typer.Context):
     """Export journal entries as JSONL."""
-    with get_store() as store:
+    cfg = ctx.obj
+    with get_store(cfg) as store:
         for line in store.journal.export():
             typer.echo(line)
 
 
 @app.command()
-def rebuild(journal_file: str):
+def rebuild(ctx: typer.Context, journal_file: str):
     """Rebuild database from a JSONL journal file."""
+    cfg = ctx.obj
     with open(journal_file) as f:
         lines = [line.strip() for line in f if line.strip()]
 
-    with get_store() as store:
+    with get_store(cfg) as store:
         store.journal.replay(lines)
 
     typer.echo(f"Replayed {len(lines)} entries")
@@ -255,24 +273,27 @@ def rebuild(journal_file: str):
 
 @dep_app.command("add")
 def dep_add(
+    ctx: typer.Context,
     from_id: BeanIdArg,
     to_id: BeanIdArg,
     dep_type: Annotated[str, typer.Option("--type", help="Dependency type")] = "blocks",
 ):
     """Add a dependency between two beans."""
+    cfg = ctx.obj
     dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
-    with get_store() as store:
+    with get_store(cfg) as store:
         store.dep.add(dep)
 
-    typer.echo(output(dep, state["json"]))
+    typer.echo(output(dep, cfg.json))
 
 
 @dep_app.command("remove")
-def dep_remove(from_id: BeanIdArg, to_id: BeanIdArg):
+def dep_remove(ctx: typer.Context, from_id: BeanIdArg, to_id: BeanIdArg):
     """Remove a dependency between two beans."""
-    with get_store() as store:
+    cfg = ctx.obj
+    with get_store(cfg) as store:
         if store.dep.remove(from_id, to_id) == 0:
-            error(BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
+            error(cfg, BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
 
-    if not state["json"]:
+    if not cfg.json:
         typer.echo(f"Removed {from_id} -> {to_id}")
