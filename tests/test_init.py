@@ -6,7 +6,8 @@ import pytest
 from typer.testing import CliRunner
 
 # Internal imports
-from beans.cli import app, find_beans_dir
+from beans.cli import app
+from beans.project import find_beans_dir
 
 runner = CliRunner()
 
