@@ -393,6 +393,60 @@ class TestRebuildCommand:
         assert data["title"] == "Updated"
 
 
+class TestGraphCommand:
+    """'beans graph' renders the dependency tree."""
+
+    def test_graph_no_deps(self, cli, jcli):
+        jcli('--json create "Task A"')
+        jcli('--json create "Task B"')
+
+        exit_code, output = cli("graph")
+        assert exit_code == 0
+        assert "Task A" in output
+        assert "Task B" in output
+
+    def test_graph_with_deps(self, cli, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        cli(f"dep add {a['id']} {b['id']}")
+
+        exit_code, output = cli("graph")
+        assert exit_code == 0
+        assert "Task A" in output
+        assert "Task B" in output
+
+    def test_graph_with_parent_child(self, cli, jcli):
+        _, parent = jcli('--json create "Parent"')
+        jcli(f'--json create "Child" --parent {parent["id"]}')
+
+        exit_code, output = cli("graph")
+        assert exit_code == 0
+        assert "Parent" in output
+        assert "Child" in output
+
+    def test_graph_json_output(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+
+        exit_code, data = jcli("--json graph")
+        assert exit_code == 0
+        assert "nodes" in data
+        assert "edges" in data
+
+    def test_graph_empty(self, cli):
+        exit_code, _ = cli("graph")
+        assert exit_code == 0
+
+    def test_graph_shows_status(self, cli, jcli):
+        _, bean = jcli('--json create "Done"')
+        cli(f"close {bean['id']}")
+
+        exit_code, output = cli("graph")
+        assert exit_code == 0
+        assert "closed" in output
+
+
 class TestRecipeCommand:
     """'beans recipe <client>' outputs agent-specific instructions."""
 

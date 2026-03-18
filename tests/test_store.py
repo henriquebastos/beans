@@ -289,6 +289,22 @@ class TestDepStoreCRUD:
         assert store.dep.remove(a.id, b.id) == 0
 
 
+class TestDepStoreListAll:
+    """DepStore.list_all() returns all dependencies."""
+
+    def test_list_all_empty(self, store):
+        assert store.dep.list_all() == []
+
+    def test_list_all_returns_all_deps(self, store):
+        a = store.bean.create(Bean(title="A"))
+        b = store.bean.create(Bean(title="B"))
+        c = store.bean.create(Bean(title="C"))
+        d1 = store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        d2 = store.dep.add(Dep(from_id=b.id, to_id=c.id))
+
+        assert store.dep.list_all() == [d1, d2]
+
+
 class TestSchemaMigration:
     """Store applies schema migrations via PRAGMA user_version."""
 
