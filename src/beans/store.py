@@ -309,6 +309,47 @@ class Store:
         self.journal = JournalStore(conn)
         self.dry_run = dry_run
 
+    # Bean delegation
+    def create(self, bean: Bean) -> Bean:
+        return self.bean.create(bean)
+
+    def get(self, bean_id) -> Bean:
+        return self.bean.get(bean_id)
+
+    def update(self, bean_id, **fields) -> int:
+        return self.bean.update(bean_id, **fields)
+
+    def delete(self, bean_id) -> int:
+        return self.bean.delete(bean_id)
+
+    def list(self) -> list[Bean]:
+        return self.bean.list()
+
+    def list_by_assignee(self, actor) -> list[Bean]:
+        return self.bean.list_by_assignee(actor)
+
+    def ready(self) -> list[Bean]:
+        return self.bean.ready()
+
+    def search(self, query) -> list[Bean]:
+        return self.bean.search(query)
+
+    def stats(self) -> dict:
+        return self.bean.stats()
+
+    # Dep delegation
+    def add_dep(self, dep: Dep) -> Dep:
+        return self.dep.add(dep)
+
+    def list_deps(self, from_id) -> list[Dep]:
+        return self.dep.list(from_id)
+
+    def list_all_deps(self) -> list[Dep]:
+        return self.dep.list_all()
+
+    def remove_dep(self, from_id, to_id) -> int:
+        return self.dep.remove(from_id, to_id)
+
     @classmethod
     def from_path(cls, db_path: str, dry_run=False) -> Self:
         return cls(sqlite3.connect(db_path), dry_run=dry_run)
