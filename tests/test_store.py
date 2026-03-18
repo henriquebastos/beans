@@ -238,6 +238,57 @@ class TestBeanStoreValidation:
             BeanId("not-a-bean-id")
 
 
+class TestDepStoreCRUD:
+    """DepStore can store and remove dependency edges."""
+
+    def test_add_and_list(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        dep = Dep(from_id=a.id, to_id=b.id)
+        store.dep.add(dep)
+
+        assert store.dep.list(a.id) == [dep]
+
+    def test_add_multiple(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        c = store.bean.create(Bean(title="Task C"))
+
+        ab = Dep(from_id=a.id, to_id=b.id)
+        ac = Dep(from_id=a.id, to_id=c.id)
+        store.dep.add(ab)
+        store.dep.add(ac)
+
+        assert set(store.dep.list(a.id)) == {ab, ac}
+
+    def test_list_only_returns_from_bean(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        c = store.bean.create(Bean(title="Task C"))
+
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        store.dep.add(Dep(from_id=c.id, to_id=b.id))
+
+        assert store.dep.list(a.id) == [Dep(from_id=a.id, to_id=b.id)]
+
+    def test_list_empty(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        assert store.dep.list(a.id) == []
+
+    def test_remove(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+
+        assert store.dep.remove(a.id, b.id) == 1
+        assert store.dep.list(a.id) == []
+
+    def test_remove_nonexistent(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        assert store.dep.remove(a.id, b.id) == 0
+
+
 class TestSchemaMigration:
     """Store applies schema migrations via PRAGMA user_version."""
 
