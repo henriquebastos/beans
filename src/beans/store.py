@@ -4,7 +4,7 @@ import sqlite3
 from typing import Self
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep
+from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS deps (
     to_id TEXT NOT NULL REFERENCES beans(id),
     dep_type TEXT NOT NULL DEFAULT 'blocks',
     PRIMARY KEY (from_id, to_id)
+);
+
+CREATE TABLE IF NOT EXISTS cross_deps (
+    project TEXT NOT NULL,
+    from_id TEXT NOT NULL,
+    to_id TEXT NOT NULL REFERENCES beans(id),
+    dep_type TEXT NOT NULL DEFAULT 'blocks',
+    PRIMARY KEY (project, from_id, to_id)
 );
 
 CREATE TABLE IF NOT EXISTS journal (
@@ -172,11 +180,17 @@ class BeanStore:
                 SELECT b.parent_id
                 FROM beans b
                 WHERE b.parent_id IS NOT NULL AND b.status != 'closed'
+            ),
+            blocked_by_cross_deps(id) AS (
+                SELECT cd.to_id
+                FROM cross_deps cd
+                WHERE cd.dep_type = 'blocks'
             )
             SELECT * FROM beans
             WHERE status != 'closed'
               AND id NOT IN (SELECT id FROM blocked_by_deps)
               AND id NOT IN (SELECT id FROM blocked_by_children)
+              AND id NOT IN (SELECT id FROM blocked_by_cross_deps)
             ORDER BY priority
         """)
         return [Bean(**r) for r in rows(cursor)]
@@ -211,6 +225,38 @@ class DepStore:
             if cursor.rowcount:
                 dep = Dep(from_id=from_id, to_id=to_id)
                 journal_log(self.conn, "dep_remove", to_id, dep.model_dump_json())
+        return cursor.rowcount
+
+
+class CrossDepStore:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def add(self, dep: CrossDep) -> CrossDep:
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO cross_deps (project, from_id, to_id, dep_type) VALUES (?, ?, ?, ?)",
+                (dep.project, dep.from_id, dep.to_id, dep.dep_type),
+            )
+            journal_log(self.conn, "cross_dep_add", dep.to_id, dep.model_dump_json())
+        return dep
+
+    def list(self, to_id) -> list[CrossDep]:
+        cursor = self.conn.execute(
+            "SELECT project, from_id, to_id, dep_type FROM cross_deps WHERE to_id = ?",
+            (to_id,),
+        )
+        return [CrossDep(**r) for r in rows(cursor)]
+
+    def remove(self, project, from_id, to_id) -> int:
+        with self.conn:
+            cursor = self.conn.execute(
+                "DELETE FROM cross_deps WHERE project = ? AND from_id = ? AND to_id = ?",
+                (project, from_id, to_id),
+            )
+            if cursor.rowcount:
+                dep = CrossDep(project=project, from_id=from_id, to_id=to_id)
+                journal_log(self.conn, "cross_dep_remove", to_id, dep.model_dump_json())
         return cursor.rowcount
 
 
@@ -256,6 +302,16 @@ class JournalStore:
                         "DELETE FROM deps WHERE from_id = ? AND to_id = ?",
                         (snapshot["from_id"], snapshot["to_id"]),
                     )
+                elif action == "cross_dep_add":
+                    self.conn.execute(
+                        "INSERT INTO cross_deps (project, from_id, to_id, dep_type) VALUES (?, ?, ?, ?)",
+                        (snapshot["project"], snapshot["from_id"], snapshot["to_id"], snapshot["dep_type"]),
+                    )
+                elif action == "cross_dep_remove":
+                    self.conn.execute(
+                        "DELETE FROM cross_deps WHERE project = ? AND from_id = ? AND to_id = ?",
+                        (snapshot["project"], snapshot["from_id"], snapshot["to_id"]),
+                    )
 
 
 class Store:
@@ -267,6 +323,7 @@ class Store:
             conn.execute("BEGIN")
         self.bean = BeanStore(conn)
         self.dep = DepStore(conn)
+        self.cross_dep = CrossDepStore(conn)
         self.journal = JournalStore(conn)
         self.dry_run = dry_run
 
