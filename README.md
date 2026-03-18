@@ -138,12 +138,11 @@ beans --json list
 | `--dry-run` | Show what would happen without writing |
 | `--db PATH` | Use a specific SQLite database file |
 | `--fields id,title,...` | Limit output to specific fields |
-| `--label NAME` | Filter list/ready by label |
 
 ### Bean CRUD
 
 ```bash
-# Create
+# Create (types: task, bug, epic, project)
 beans create "Fix auth" --type bug --body "Detailed description" --parent bean-<id>
 
 # Show
@@ -186,9 +185,6 @@ beans dep add bean-aaaa bean-bbbb
 
 # Remove a dependency
 beans dep remove bean-aaaa bean-bbbb
-
-# Cross-project dependencies
-beans dep add bean-aaaa bean-bbbb --project other-project
 ```
 
 ### Agent coordination
@@ -202,23 +198,6 @@ beans release bean-a3f2dd1c --actor alice
 
 # Release all beans claimed by an actor
 beans release --mine --actor alice
-```
-
-### Labels
-
-```bash
-# Add a label
-beans label add bean-a3f2dd1c urgent
-
-# Remove a label
-beans label remove bean-a3f2dd1c urgent
-
-# List labels on a bean
-beans label list bean-a3f2dd1c
-
-# Filter by label
-beans --label urgent list
-beans --label urgent ready
 ```
 
 ### Journal & sync
@@ -241,11 +220,6 @@ beans config
 beans recipe --list
 beans recipe claude
 beans recipe generic
-
-# Register projects for cross-project deps
-beans project add other-project --path /path/to/.beans
-beans project list
-beans project remove other-project
 ```
 
 ### Introspection
@@ -274,8 +248,7 @@ src/beans/
 - **models.py** — Pure data. Bean is a Pydantic model with validation. No I/O, no side
   effects, easy to test.
 - **store.py** — The I/O boundary. Store wraps a SQLite connection and composes
-  BeanStore, DepStore, CrossDepStore, LabelStore, and JournalStore. Accepts an injected
-  connection for testing.
+  BeanStore, DepStore, and JournalStore. Accepts an injected connection for testing.
 - **api.py** — Command API. Each function is one use case (create, close, claim,
   release, stats, graph). Composes store calls.
 - **cli.py** — Thin wiring. Parses args, calls API functions, formats output. No
