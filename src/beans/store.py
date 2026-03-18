@@ -334,35 +334,16 @@ class JournalStore:
                     )
 
 
-class DryRunConnection:
-    """Wraps a sqlite3.Connection to prevent commits for dry-run mode."""
-
-    def __init__(self, conn: sqlite3.Connection):
-        self.conn = conn
-        conn.isolation_level = None
-        conn.execute("BEGIN")
-
-    def __getattr__(self, name):
-        return getattr(self.conn, name)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return False
-
-    def rollback(self):
-        self.conn.rollback()
-
-
 class Store:
     def __init__(self, conn: sqlite3.Connection, dry_run=False):
         self.conn = conn
         conn.executescript(SCHEMA)
-        wrapped = DryRunConnection(conn) if dry_run else conn
-        self.bean = BeanStore(wrapped)
-        self.dep = DepStore(wrapped)
-        self.journal = JournalStore(wrapped)
+        if dry_run:
+            conn.autocommit = True
+            conn.execute("BEGIN")
+        self.bean = BeanStore(conn)
+        self.dep = DepStore(conn)
+        self.journal = JournalStore(conn)
         self.dry_run = dry_run
 
     @classmethod
@@ -371,7 +352,7 @@ class Store:
 
     def close(self):
         if self.dry_run:
-            self.conn.rollback()
+            self.conn.execute("ROLLBACK")
         self.conn.close()
 
     def __enter__(self):
