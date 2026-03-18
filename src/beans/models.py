@@ -12,6 +12,10 @@ class BeanNotFoundError(KeyError):
     pass
 
 
+class DepNotFoundError(KeyError):
+    pass
+
+
 ID_PREFIX = "bean-"
 ID_BYTES = 4
 

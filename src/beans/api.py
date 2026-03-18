@@ -2,7 +2,7 @@
 from datetime import UTC, datetime
 
 # Internal imports
-from beans.models import Bean, BeanNotFoundError, BeanUpdate, Dep
+from beans.models import Bean, BeanNotFoundError, BeanUpdate, Dep, DepNotFoundError
 from beans.store import Store
 
 
@@ -91,7 +91,7 @@ def add_dep(store: Store, from_id, to_id, dep_type="blocks") -> Dep:
 def remove_dep(store: Store, from_id, to_id) -> int:
     count = store.dep.remove(from_id, to_id)
     if count == 0:
-        raise BeanNotFoundError(f"No dependency from {from_id} to {to_id}")
+        raise DepNotFoundError(f"No dependency from {from_id} to {to_id}")
     return count
 
 

@@ -22,7 +22,7 @@ from beans.api import (
     stats,
     update_bean,
 )
-from beans.models import BeanId, BeanNotFoundError, Dep
+from beans.models import BeanId, BeanNotFoundError, Dep, DepNotFoundError
 from beans.store import Store
 
 
@@ -321,7 +321,7 @@ class TestRemoveDep:
     def test_remove_nonexistent_raises(self, store):
         a = create_bean(store, "Task A")
         b = create_bean(store, "Task B")
-        with pytest.raises(BeanNotFoundError):
+        with pytest.raises(DepNotFoundError):
             remove_dep(store, a.id, b.id)
 
 

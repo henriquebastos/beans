@@ -27,7 +27,7 @@ from beans.api import (
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep, DepNotFoundError, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
 
@@ -446,7 +446,7 @@ def dep_remove(
     try:
         with get_store(cfg) as store:
             remove_dep(store, from_id, to_id)
-    except BeanNotFoundError as e:
+    except DepNotFoundError as e:
         error(cfg, e)
 
     if not cfg.json:
