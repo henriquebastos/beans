@@ -263,6 +263,7 @@ class BeanStore(BaseStore):
             SELECT * FROM beans
             WHERE id NOT IN (SELECT id FROM blocked_by_deps)
               AND id NOT IN (SELECT id FROM blocked_by_children)
+            ORDER BY priority
         """)
         return [Bean(**r) for r in rows(cursor)]
 
