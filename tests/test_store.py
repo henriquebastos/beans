@@ -119,6 +119,14 @@ class TestBeanStoreDeleteBean:
         with pytest.raises(BeanNotFoundError):
             store.bean.get(bean.id)
 
+    def test_delete_bean_with_deps_cascades(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+
+        assert store.bean.delete(a.id) == 1
+        assert store.dep.list(a.id) == []
+
     def test_delete_nonexistent_returns_zero(self, store):
         assert store.bean.delete(BeanId("bean-00000000")) == 0
 

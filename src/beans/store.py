@@ -187,6 +187,7 @@ class BeanStore(BaseStore):
 
     def delete(self, bean_id) -> int:
         with self.conn:
+            self.conn.execute("DELETE FROM deps WHERE from_id = ? OR to_id = ?", (bean_id, bean_id))
             cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
         return cursor.rowcount
 
