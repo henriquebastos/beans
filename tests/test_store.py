@@ -318,3 +318,53 @@ class TestBeanStoreValidation:
     def test_invalid_bean_id_rejected(self, store):
         with pytest.raises(ValueError, match="Invalid bean id"):
             BeanId("not-a-bean-id")
+
+
+class TestSchemaMigration:
+    """Store applies schema migrations via PRAGMA user_version."""
+
+    def test_new_database_gets_latest_version(self):
+        from beans.store import SCHEMA_VERSION
+
+        with Store(sqlite3.connect(":memory:")) as s:
+            version = s.conn.execute("PRAGMA user_version").fetchone()[0]
+            assert version == SCHEMA_VERSION
+
+    def test_migration_drops_stale_tables(self):
+        conn = sqlite3.connect(":memory:")
+        conn.executescript("""
+            CREATE TABLE beans (id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                type TEXT DEFAULT 'task', status TEXT DEFAULT 'open',
+                priority INTEGER DEFAULT 2, body TEXT DEFAULT '',
+                parent_id TEXT, assignee TEXT, created_by TEXT, ref_id TEXT,
+                created_at TEXT NOT NULL, closed_at TEXT, close_reason TEXT);
+            CREATE TABLE deps (from_id TEXT, to_id TEXT, dep_type TEXT DEFAULT 'blocks',
+                PRIMARY KEY (from_id, to_id));
+            CREATE TABLE journal (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action TEXT NOT NULL, bean_id TEXT NOT NULL, snapshot TEXT,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')));
+            CREATE TABLE labels (bean_id TEXT, label TEXT, PRIMARY KEY (bean_id, label));
+            CREATE TABLE cross_deps (from_id TEXT, to_id TEXT, project TEXT,
+                dep_type TEXT DEFAULT 'blocks', PRIMARY KEY (from_id, to_id, project));
+        """)
+        tables_before = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        assert "labels" in tables_before
+        assert "cross_deps" in tables_before
+
+        with Store(conn) as s:
+            query = "SELECT name FROM sqlite_master WHERE type='table'"
+            tables_after = {r[0] for r in s.conn.execute(query).fetchall()}
+            assert "labels" not in tables_after
+            assert "cross_deps" not in tables_after
+
+    def test_reopening_migrated_database_is_idempotent(self, tmp_path):
+        from beans.store import SCHEMA_VERSION
+
+        db_path = str(tmp_path / "test.db")
+        with Store.from_path(db_path) as s:
+            s.bean.create(Bean(title="Survives migration"))
+
+        with Store.from_path(db_path) as s:
+            version = s.conn.execute("PRAGMA user_version").fetchone()[0]
+            assert version == SCHEMA_VERSION
+            assert s.bean.list()[0].title == "Survives migration"

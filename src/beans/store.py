@@ -69,6 +69,21 @@ def journal_log(conn, action, bean_id, snapshot) -> None:
     conn.execute(INSERT_JOURNAL, (action, bean_id, snapshot))
 
 
+SCHEMA_VERSION = 2
+
+MIGRATIONS = {
+    2: "DROP TABLE IF EXISTS labels; DROP TABLE IF EXISTS cross_deps;",
+}
+
+
+def migrate(conn, migrations=MIGRATIONS, target=SCHEMA_VERSION) -> None:
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    for version in range(current + 1, target + 1):
+        if version in migrations:
+            conn.executescript(migrations[version])
+    conn.executescript(f"PRAGMA user_version = {target};")
+
+
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at", "close_reason"}
 
 BEAN_COLUMNS = (
@@ -285,6 +300,7 @@ class Store:
     def __init__(self, conn: sqlite3.Connection, dry_run=False):
         self.conn = conn
         conn.executescript(SCHEMA)
+        migrate(conn)
         if dry_run:
             conn.autocommit = True
             conn.execute("BEGIN")
