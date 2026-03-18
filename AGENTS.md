@@ -230,6 +230,12 @@ Each commit does one thing. Use conventional commit messages:
 - `docs:` — documentation
 - `ci:` — CI/CD changes
 
+When a commit resolves a bean, append `#closes <bean-id>` to the commit message:
+
+```bash
+git commit -m "feat: add --body flag to create command #closes bean-69b4e720"
+```
+
 ### Verify before committing
 
 ```bash
@@ -314,6 +320,14 @@ A bean can only be closed once tests pass and changes are committed:
 
 ```
 beans create → beans claim → implement → lint → test → commit → beans close
+```
+
+When committing, append `#closes <bean-id>` to the commit message. When closing
+the bean, include the commit SHA in `--reason`:
+
+```bash
+git commit -m "feat: add --body flag to create command #closes bean-69b4e720"
+beans close bean-69b4e720 --reason "Implemented in abc1234"
 ```
 
 After implementation is complete, ALWAYS run linters and tests before closing the bean.
