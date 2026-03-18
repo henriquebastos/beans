@@ -51,15 +51,24 @@ class BeanStore:
 
 ### Default arguments for configurability
 
-Extract magic values as default arguments. This makes functions testable and reusable
-without adding configuration infrastructure.
+Never reference module-level constants directly inside function bodies. Instead, pass
+them as default arguments. This makes functions testable and reusable without adding
+configuration infrastructure. For classes, use class attributes instead of reaching for
+the global.
 
 ```python
-def generate_id(prefix="bean-", fn=partial(secrets.token_hex, ID_BYTES)) -> str:
-    return prefix + fn()
+# Yes — constant flows through the signature
+def find_beans_dir(start=None, dirname=BEANS_DIR) -> Path: ...
 
-def local_timestamp(dt, fmt="%Y-%m-%d %H:%M") -> str:
-    return dt.astimezone().strftime(fmt)
+# Yes — class owns its configuration
+class BeanId(str):
+    prefix = ID_PREFIX
+    def __new__(cls, value="", **kwargs):
+        if not value.startswith(cls.prefix): ...
+
+# No — function reaches for the global directly
+def find_beans_dir(start=None) -> Path:
+    candidate = current / BEANS_DIR  # hidden dependency
 ```
 
 ### `**kwargs` over dict for named fields

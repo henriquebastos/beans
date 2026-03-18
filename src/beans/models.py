@@ -17,8 +17,10 @@ ID_BYTES = 4
 
 
 class BeanId(str):
+    prefix = ID_PREFIX
+
     def __new__(cls, value="", **kwargs):
-        if not value.startswith(ID_PREFIX):
+        if not value.startswith(cls.prefix):
             raise ValueError(f"Invalid bean id: {value}")
         return super().__new__(cls, value)
 
@@ -30,7 +32,7 @@ class BeanId(str):
 
     @classmethod
     def __get_pydantic_json_schema__(cls, schema, handler):
-        return {"type": "string", "pattern": f"^{ID_PREFIX}[0-9a-f]{{8}}$"}
+        return {"type": "string", "pattern": f"^{cls.prefix}[0-9a-f]{{8}}$"}
 
     @classmethod
     def generate(cls, prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
