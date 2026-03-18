@@ -208,30 +208,9 @@ class BeanStore:
         cursor = self.conn.execute("SELECT * FROM beans")
         return [Bean(**r) for r in rows(cursor)]
 
-    def claim(self, bean_id, actor) -> Bean:
-        bean = self.get(bean_id)
-        if bean.status == "closed":
-            raise ValueError(f"Bean {bean_id} is closed")
-        if bean.assignee == actor:
-            return bean
-        if bean.assignee:
-            raise ValueError(f"Bean {bean_id} already claimed by {bean.assignee}")
-        self.update(bean_id, assignee=actor, status="in_progress")
-        return self.get(bean_id)
-
-    def release(self, bean_id, actor) -> Bean:
-        bean = self.get(bean_id)
-        if not bean.assignee:
-            return bean
-        if bean.assignee != actor:
-            raise ValueError(f"Bean {bean_id} claimed by {bean.assignee}")
-        self.update(bean_id, assignee=None, status="open")
-        return self.get(bean_id)
-
-    def release_mine(self, actor) -> list[Bean]:
-        cursor = self.conn.execute("SELECT id FROM beans WHERE assignee = ?", (actor,))
-        ids = [r[0] for r in cursor.fetchall()]
-        return [self.release(bean_id, actor) for bean_id in ids]
+    def list_by_assignee(self, actor) -> list[Bean]:
+        cursor = self.conn.execute("SELECT * FROM beans WHERE assignee = ?", (actor,))
+        return [Bean(**r) for r in rows(cursor)]
 
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""

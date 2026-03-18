@@ -5,6 +5,7 @@ import sqlite3
 import pytest
 
 # Internal imports
+from beans.api import claim_bean, release_bean, release_mine
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep
 from beans.store import Store
 
@@ -223,77 +224,77 @@ class TestBeanStoreReady:
         assert parent in store.bean.ready()
 
 
-class TestBeanStoreClaim:
-    """BeanStore.claim() atomically assigns a bean."""
+class TestClaimBean:
+    """claim_bean() atomically assigns a bean."""
 
     def test_claim_sets_assignee_and_status(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
 
-        result = store.bean.claim(bean.id, "alice")
+        result = claim_bean(store.bean, bean.id, "alice")
         assert result.assignee == "alice"
         assert result.status == "in_progress"
 
     def test_claim_same_actor_is_idempotent(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
-        first = store.bean.claim(bean.id, "alice")
-        second = store.bean.claim(bean.id, "alice")
+        first = claim_bean(store.bean, bean.id, "alice")
+        second = claim_bean(store.bean, bean.id, "alice")
 
         assert first == second
 
     def test_claim_different_actor_raises(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
-        store.bean.claim(bean.id, "alice")
+        claim_bean(store.bean, bean.id, "alice")
 
         with pytest.raises(ValueError, match="already claimed"):
-            store.bean.claim(bean.id, "bob")
+            claim_bean(store.bean, bean.id, "bob")
 
     def test_claim_nonexistent_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.bean.claim(BeanId("bean-00000000"), "alice")
+            claim_bean(store.bean, BeanId("bean-00000000"), "alice")
 
     def test_claim_closed_bean_raises(self, store):
         bean = store.bean.create(Bean(title="Fix auth", status="closed"))
 
         with pytest.raises(ValueError, match="closed"):
-            store.bean.claim(bean.id, "alice")
+            claim_bean(store.bean, bean.id, "alice")
 
 
-class TestBeanStoreRelease:
-    """BeanStore.release() clears assignee and sets status=open."""
+class TestReleaseBean:
+    """release_bean() clears assignee and sets status=open."""
 
     def test_release_clears_assignee(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
-        store.bean.claim(bean.id, "alice")
+        claim_bean(store.bean, bean.id, "alice")
 
-        result = store.bean.release(bean.id, "alice")
+        result = release_bean(store.bean, bean.id, "alice")
         assert result.assignee is None
         assert result.status == "open"
 
     def test_release_unclaimed_is_idempotent(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
 
-        result = store.bean.release(bean.id, "alice")
+        result = release_bean(store.bean, bean.id, "alice")
         assert result == bean
 
     def test_release_by_different_actor_raises(self, store):
         bean = store.bean.create(Bean(title="Fix auth"))
-        store.bean.claim(bean.id, "alice")
+        claim_bean(store.bean, bean.id, "alice")
 
         with pytest.raises(ValueError, match="claimed by alice"):
-            store.bean.release(bean.id, "bob")
+            release_bean(store.bean, bean.id, "bob")
 
     def test_release_nonexistent_raises(self, store):
         with pytest.raises(BeanNotFoundError):
-            store.bean.release(BeanId("bean-00000000"), "alice")
+            release_bean(store.bean, BeanId("bean-00000000"), "alice")
 
     def test_release_mine(self, store):
         a = store.bean.create(Bean(title="Task A"))
         b = store.bean.create(Bean(title="Task B"))
         store.bean.create(Bean(title="Task C"))
-        store.bean.claim(a.id, "alice")
-        store.bean.claim(b.id, "alice")
+        claim_bean(store.bean, a.id, "alice")
+        claim_bean(store.bean, b.id, "alice")
 
-        released = store.bean.release_mine("alice")
+        released = release_mine(store.bean, "alice")
         assert len(released) == 2
         assert all(b.assignee is None for b in released)
         assert all(b.status == "open" for b in released)
@@ -301,7 +302,7 @@ class TestBeanStoreRelease:
     def test_release_mine_no_claims(self, store):
         store.bean.create(Bean(title="Task A"))
 
-        assert store.bean.release_mine("alice") == []
+        assert release_mine(store.bean, "alice") == []
 
 
 class TestBeanStoreValidation:
