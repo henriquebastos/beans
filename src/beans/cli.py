@@ -126,7 +126,7 @@ def create(
         kwargs["type"] = type
     try:
         with get_store(cfg) as store:
-            bean = create_bean(store.bean, title, **kwargs)
+            bean = create_bean(store, title, **kwargs)
     except ValidationError as e:
         error(cfg, e)
 
@@ -139,7 +139,7 @@ def show(ctx: typer.Context, bean_id: BeanIdArg):
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            bean = show_bean(store.bean, bean_id)
+            bean = show_bean(store, bean_id)
     except BeanNotFoundError as e:
         error(cfg, e)
 
@@ -162,7 +162,7 @@ def update(
     fields = {"title": title, "type": type, "status": status, "priority": priority, "body": body, "parent_id": parent}
     try:
         with get_store(cfg) as store:
-            bean = update_bean(store.bean, bean_id, **{k: v for k, v in fields.items() if v is not None})
+            bean = update_bean(store, bean_id, **{k: v for k, v in fields.items() if v is not None})
     except (BeanNotFoundError, ValidationError) as e:
         error(cfg, e)
 
@@ -179,7 +179,7 @@ def close(
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            bean = close_bean(store.bean, bean_id, reason=reason)
+            bean = close_bean(store, bean_id, reason=reason)
     except BeanNotFoundError as e:
         error(cfg, e)
 
@@ -192,7 +192,7 @@ def delete(ctx: typer.Context, bean_id: BeanIdArg):
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            delete_bean(store.bean, bean_id)
+            delete_bean(store, bean_id)
     except BeanNotFoundError as e:
         error(cfg, e)
 
@@ -210,7 +210,7 @@ def claim(
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            bean = claim_bean(store.bean, bean_id, actor)
+            bean = claim_bean(store, bean_id, actor)
     except (BeanNotFoundError, ValueError) as e:
         error(cfg, e)
 
@@ -230,12 +230,12 @@ def release(
         error(cfg, ValueError("Provide a bean id or --mine, not both"))
     elif mine:
         with get_store(cfg) as store:
-            beans = release_mine(store.bean, actor)
+            beans = release_mine(store, actor)
         typer.echo(output(beans, cfg.json))
     elif bean_id:
         try:
             with get_store(cfg) as store:
-                bean = release_bean(store.bean, bean_id, actor)
+                bean = release_bean(store, bean_id, actor)
         except (BeanNotFoundError, ValueError) as e:
             error(cfg, e)
         typer.echo(output(bean, cfg.json))
@@ -248,7 +248,7 @@ def list_cmd(ctx: typer.Context):
     """List all beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = list_beans(store.bean)
+        beans = list_beans(store)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -258,7 +258,7 @@ def ready(ctx: typer.Context):
     """List only unblocked beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = ready_beans(store.bean)
+        beans = ready_beans(store)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -268,7 +268,7 @@ def stats(ctx: typer.Context):
     """Show aggregate counts by status, type, and assignee."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        data = get_stats(store.bean)
+        data = get_stats(store)
 
     if cfg.json:
         typer.echo(json.dumps(data))
@@ -321,7 +321,7 @@ def graph_cmd(ctx: typer.Context):
     """Show dependency tree visualization."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        data = build_graph(list_beans(store.bean), store.dep.list_all())
+        data = build_graph(store)
 
     if cfg.json:
         typer.echo(json.dumps(data))
@@ -336,7 +336,7 @@ def search(ctx: typer.Context, query: str):
     """Search beans by title and body."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = search_beans(store.bean, query)
+        beans = search_beans(store, query)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -431,7 +431,7 @@ def dep_add(
     """Add a dependency between two beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        dep = add_dep(store.dep, from_id, to_id, dep_type)
+        dep = add_dep(store, from_id, to_id, dep_type)
     typer.echo(output(dep, cfg.json))
 
 
@@ -445,7 +445,7 @@ def dep_remove(
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            remove_dep(store.dep, from_id, to_id)
+            remove_dep(store, from_id, to_id)
     except BeanNotFoundError as e:
         error(cfg, e)
 
