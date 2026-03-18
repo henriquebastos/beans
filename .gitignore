@@ -34,4 +34,5 @@ dist/
 
 # Beans runtime
 beans.db
-.beans/
+.beans/*
+!.beans/journal.jsonl
