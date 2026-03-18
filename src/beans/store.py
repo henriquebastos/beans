@@ -169,6 +169,17 @@ class BeanStore:
         cursor = self.conn.execute("SELECT * FROM beans WHERE assignee = ?", (actor,))
         return [Bean(**r) for r in rows(cursor)]
 
+    def stats(self) -> dict:
+        result = {"by_status": {}, "by_type": {}, "by_assignee": {}}
+        for label, col in [("by_status", "status"), ("by_type", "type")]:
+            cursor = self.conn.execute(f"SELECT {col}, COUNT(*) FROM beans GROUP BY {col}")
+            result[label] = dict(cursor.fetchall())
+        cursor = self.conn.execute(
+            "SELECT COALESCE(assignee, 'unassigned'), COUNT(*) FROM beans GROUP BY COALESCE(assignee, 'unassigned')"
+        )
+        result["by_assignee"] = dict(cursor.fetchall())
+        return result
+
     def ready(self) -> list[Bean]:
         cursor = self.conn.execute("""
             WITH RECURSIVE

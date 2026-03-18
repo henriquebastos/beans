@@ -10,6 +10,7 @@ import typer
 
 # Internal imports
 from beans.api import claim_bean, close_bean, create_bean, release_bean, release_mine, update_bean
+from beans.api import stats as get_stats
 from beans.config import config_path, load_config, load_projects, projects_path, save_projects
 from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
@@ -239,6 +240,23 @@ def ready(ctx: typer.Context):
         beans = store.bean.ready()
 
     typer.echo(output(beans, cfg.json))
+
+
+@app.command()
+def stats(ctx: typer.Context):
+    """Show aggregate counts by status, type, and assignee."""
+    cfg = ctx.obj
+    with get_store(cfg) as store:
+        data = get_stats(store.bean)
+
+    if cfg.json:
+        typer.echo(json.dumps(data))
+    else:
+        for section, counts in data.items():
+            label = section.replace("by_", "").title()
+            typer.echo(f"\n{label}:")
+            for key, count in sorted(counts.items()):
+                typer.echo(f"  {key}: {count}")
 
 
 @app.command()
