@@ -123,6 +123,13 @@ class TestUpdateCommand:
         assert exit_code == 0
         assert data["parent_id"] == parent["id"]
 
+    def test_update_body(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("update", created["id"], "--body", "Detailed description")
+        assert exit_code == 0
+        assert data["body"] == "Detailed description"
+
     def test_update_nonexistent_bean(self, invoke_human):
         assert invoke_human("update", "bean-00000000", "--title", "Nope") != 0
 
