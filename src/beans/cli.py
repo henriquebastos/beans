@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
+from beans.models import Bean, BeanId, BeanNotFoundError, BeanUpdate, Dep, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
 
@@ -116,13 +116,12 @@ def update(
     parent: Annotated[str | None, typer.Option(help="New parent bean id", parser=BeanId)] = None,
 ):
     """Update fields on a bean."""
-    all_fields = {"title": title, "status": status, "priority": priority, "body": body, "parent_id": parent}
-    fields = {k: v for k, v in all_fields.items() if v is not None}
-
     try:
-        Bean.fields_validate(**fields)
+        validated = BeanUpdate(title=title, status=status, priority=priority, body=body, parent_id=parent)
     except ValidationError as e:
         error(e)
+
+    fields = validated.model_dump(exclude_none=True)
 
     try:
         with get_store() as store:
