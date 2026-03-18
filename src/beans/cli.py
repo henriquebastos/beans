@@ -1,8 +1,6 @@
 # Python imports
 from datetime import UTC, datetime
-import importlib.resources
 import json
-from pathlib import Path
 from typing import Annotated
 
 # Pip imports
@@ -11,6 +9,7 @@ import typer
 
 # Internal imports
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
+from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
 
 app = typer.Typer()
@@ -63,11 +62,6 @@ def error(e: Exception):
     raise typer.Exit(code=1) from e
 
 
-BEANS_DIR = ".beans"
-DB_NAME = "beans.db"
-AGENTS_MD = "AGENTS.md"
-
-
 def get_store(db_name=DB_NAME) -> Store:
     if state.get("db"):
         db_path = state["db"]
@@ -79,33 +73,10 @@ def get_store(db_name=DB_NAME) -> Store:
     return Store.from_path(db_path, dry_run=state.get("dry_run", False))
 
 
-def find_beans_dir(start=None, dirname=BEANS_DIR) -> Path:
-    """Walk up from start (default cwd) to find a .beans/ directory."""
-    current = Path(start) if start else Path.cwd()
-    while True:
-        candidate = current / dirname
-        if candidate.is_dir():
-            return candidate
-        parent = current.parent
-        if parent == current:
-            raise FileNotFoundError(f"No {dirname} directory found (walked up from {start or Path.cwd()})")
-        current = parent
-
-
 @app.command()
-def init(dirname=BEANS_DIR, db_name=DB_NAME, agents_md=AGENTS_MD):
+def init():
     """Initialize a beans project in the current directory."""
-    beans_dir = Path.cwd() / dirname
-    beans_dir.mkdir(exist_ok=True)
-
-    db_path = beans_dir / db_name
-    Store.from_path(str(db_path)).close()
-
-    agents_file = beans_dir / agents_md
-    if not agents_file.exists():
-        template = importlib.resources.files("beans.templates").joinpath(agents_md).read_text()
-        agents_file.write_text(template)
-
+    beans_dir = init_project()
     typer.echo(f"Initialized beans project in {beans_dir}")
 
 
