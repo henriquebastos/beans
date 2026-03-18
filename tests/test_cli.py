@@ -225,12 +225,11 @@ class TestDryRunMode:
             f.write(journal)
 
         target_db = str(tmp_path / "target.db")
-        target = CliRunner()
-        result = target.invoke(app, ["--db", target_db, "--dry-run", "rebuild", journal_file])
-        assert result.exit_code == 0
+        exit_code, _ = cli(f"--db {target_db} --dry-run rebuild {journal_file}")
+        assert exit_code == 0
 
-        result = target.invoke(app, ["--db", target_db, "--json", "list"])
-        assert json.loads(result.output) == []
+        _, beans = jcli(f"--db {target_db} --json list")
+        assert beans == []
 
 
 class TestSchemaCommand:
@@ -369,12 +368,10 @@ class TestRebuildCommand:
             f.write(journal)
 
         target_db = str(tmp_path / "rebuilt.db")
-        target = CliRunner()
-        result = target.invoke(app, ["--db", target_db, "rebuild", journal_file])
-        assert result.exit_code == 0
+        exit_code, _ = cli(f"--db {target_db} rebuild {journal_file}")
+        assert exit_code == 0
 
-        result = target.invoke(app, ["--db", target_db, "--json", "list"])
-        data = json.loads(result.output)
+        _, data = jcli(f"--db {target_db} --json list")
         assert len(data) == 1
         assert data[0]["id"] == bean["id"]
         assert data[0]["title"] == "Fix auth"
@@ -389,9 +386,8 @@ class TestRebuildCommand:
             f.write(journal)
 
         target_db = str(tmp_path / "rebuilt.db")
-        target = CliRunner()
-        result = target.invoke(app, ["--db", target_db, "rebuild", journal_file])
-        assert result.exit_code == 0
+        exit_code, _ = cli(f"--db {target_db} rebuild {journal_file}")
+        assert exit_code == 0
 
-        result = target.invoke(app, ["--db", target_db, "--json", "show", bean["id"]])
-        assert json.loads(result.output)["title"] == "Updated"
+        _, data = jcli(f"--db {target_db} --json show {bean['id']}")
+        assert data["title"] == "Updated"
