@@ -10,6 +10,7 @@ import typer
 
 # Internal imports
 from beans.api import claim_bean, close_bean, create_bean, release_bean, release_mine, update_bean
+from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config, load_projects, projects_path, save_projects
 from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep, Error
@@ -257,6 +258,57 @@ def stats(ctx: typer.Context):
             typer.echo(f"\n{label}:")
             for key, count in sorted(counts.items()):
                 typer.echo(f"  {key}: {count}")
+
+
+def format_graph(data) -> str:
+    nodes = {n["id"]: n for n in data["nodes"]}
+    children = {}
+    roots = []
+    for n in data["nodes"]:
+        pid = n.get("parent_id")
+        if pid and pid in nodes:
+            children.setdefault(pid, []).append(n["id"])
+        else:
+            roots.append(n["id"])
+
+    blocked_by = {}
+    for e in data["edges"]:
+        if e["dep_type"] == "blocks":
+            blocked_by.setdefault(e["to_id"], []).append(e["from_id"])
+
+    lines = []
+
+    def render(node_id, indent=0):
+        n = nodes[node_id]
+        prefix = "  " * indent
+        status_mark = f" [{n['status']}]"
+        lines.append(f"{prefix}{n['id']}  {n['title']}{status_mark}")
+        blockers = blocked_by.get(node_id, [])
+        for b_id in blockers:
+            if b_id in nodes:
+                lines.append(f"{prefix}  ← blocked by {b_id}")
+        for child_id in children.get(node_id, []):
+            render(child_id, indent + 1)
+
+    for root_id in roots:
+        render(root_id)
+
+    return "\n".join(lines)
+
+
+@app.command("graph")
+def graph_cmd(ctx: typer.Context):
+    """Show dependency tree visualization."""
+    cfg = ctx.obj
+    with get_store(cfg) as store:
+        data = build_graph(store.bean.list(), store.dep.list_all())
+
+    if cfg.json:
+        typer.echo(json.dumps(data))
+    else:
+        text = format_graph(data)
+        if text:
+            typer.echo(text)
 
 
 @app.command()
