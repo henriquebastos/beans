@@ -4,7 +4,7 @@ import sqlite3
 from typing import Self
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep, Label
+from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -53,12 +53,6 @@ CREATE TABLE IF NOT EXISTS cross_deps (
     to_id TEXT NOT NULL REFERENCES beans(id),
     dep_type TEXT NOT NULL DEFAULT 'blocks',
     PRIMARY KEY (project, from_id, to_id)
-);
-
-CREATE TABLE IF NOT EXISTS labels (
-    bean_id TEXT NOT NULL REFERENCES beans(id),
-    label TEXT NOT NULL,
-    PRIMARY KEY (bean_id, label)
 );
 
 CREATE TABLE IF NOT EXISTS journal (
@@ -343,33 +337,6 @@ class JournalStore:
                     )
 
 
-class LabelStore:
-    def __init__(self, conn):
-        self.conn = conn
-
-    def add(self, bean_id, label) -> Label:
-        with self.conn:
-            self.conn.execute("INSERT OR IGNORE INTO labels (bean_id, label) VALUES (?, ?)", (bean_id, label))
-        return Label(bean_id=bean_id, label=label)
-
-    def list(self, bean_id) -> list[Label]:
-        cursor = self.conn.execute(
-            "SELECT bean_id, label FROM labels WHERE bean_id = ? ORDER BY label", (bean_id,)
-        )
-        return [Label(**r) for r in rows(cursor)]
-
-    def remove(self, bean_id, label) -> int:
-        with self.conn:
-            cursor = self.conn.execute("DELETE FROM labels WHERE bean_id = ? AND label = ?", (bean_id, label))
-        return cursor.rowcount
-
-    def beans_by_label(self, label) -> list[Bean]:
-        cursor = self.conn.execute(
-            "SELECT b.* FROM beans b JOIN labels l ON b.id = l.bean_id WHERE l.label = ?", (label,)
-        )
-        return [Bean(**r) for r in rows(cursor)]
-
-
 class Store:
     def __init__(self, conn: sqlite3.Connection, dry_run=False):
         self.conn = conn
@@ -380,7 +347,6 @@ class Store:
         self.bean = BeanStore(conn)
         self.dep = DepStore(conn)
         self.cross_dep = CrossDepStore(conn)
-        self.label = LabelStore(conn)
         self.journal = JournalStore(conn)
         self.dry_run = dry_run
 
