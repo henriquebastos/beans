@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import Bean
+from beans.models import Bean, Dep
 from beans.store import Store
 
 
@@ -192,3 +192,37 @@ class TestJournalReplay:
         with Store(sqlite3.connect(":memory:")) as target:
             target.journal.replay([])
             assert target.bean.list() == []
+
+    def test_replay_restores_deps(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        dep = Dep(from_id=a.id, to_id=b.id)
+        store.dep.add(dep)
+        lines = list(store.journal.export())
+
+        with Store(sqlite3.connect(":memory:")) as target:
+            target.journal.replay(lines)
+            assert target.dep.list(a.id) == [dep]
+
+
+class TestJournalDepTriggers:
+    """Journal captures dep changes via triggers."""
+
+    def test_dep_add_creates_journal_entry(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+
+        entries = journal_entries(store)
+        dep_entries = [e for e in entries if e["action"] == "dep_add"]
+        assert len(dep_entries) == 1
+
+    def test_dep_remove_creates_journal_entry(self, store):
+        a = store.bean.create(Bean(title="Task A"))
+        b = store.bean.create(Bean(title="Task B"))
+        store.dep.add(Dep(from_id=a.id, to_id=b.id))
+        store.dep.remove(a.id, b.id)
+
+        entries = journal_entries(store)
+        dep_entries = [e for e in entries if e["action"] == "dep_remove"]
+        assert len(dep_entries) == 1
