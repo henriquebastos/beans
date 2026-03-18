@@ -54,3 +54,7 @@ def release_bean(store: BeanStore, bean_id, actor) -> Bean:
 def release_mine(store: BeanStore, actor) -> list[Bean]:
     beans = store.list_by_assignee(actor)
     return [release_bean(store, bean.id, actor) for bean in beans]
+
+
+def stats(store: BeanStore) -> dict:
+    return store.stats()
