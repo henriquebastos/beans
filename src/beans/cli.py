@@ -242,6 +242,16 @@ def ready(ctx: typer.Context):
 
 
 @app.command()
+def search(ctx: typer.Context, query: str):
+    """Search beans by title and body."""
+    cfg = ctx.obj
+    with get_store(cfg) as store:
+        beans = store.bean.search(query)
+
+    typer.echo(output(beans, cfg.json))
+
+
+@app.command()
 def schema():
     """Output JSON schemas for all models."""
     schemas = {
