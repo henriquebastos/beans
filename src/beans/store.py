@@ -117,6 +117,28 @@ BEGIN
         'close_reason', OLD.close_reason
     ));
 END;
+
+CREATE TRIGGER IF NOT EXISTS journal_after_dep_insert
+AFTER INSERT ON deps
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('dep_add', NEW.to_id, json_object(
+        'from_id', NEW.from_id,
+        'to_id', NEW.to_id,
+        'dep_type', NEW.dep_type
+    ));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_after_dep_delete
+AFTER DELETE ON deps
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('dep_remove', OLD.to_id, json_object(
+        'from_id', OLD.from_id,
+        'to_id', OLD.to_id,
+        'dep_type', OLD.dep_type
+    ));
+END;
 """
 
 
@@ -299,6 +321,16 @@ class JournalStore(BaseStore):
                     self.conn.execute(UPDATE_BEAN_ALL, (*vals[1:], vals[0]))
                 elif action == "delete":
                     self.conn.execute("DELETE FROM beans WHERE id=?", (bean_id,))
+                elif action == "dep_add":
+                    self.conn.execute(
+                        "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
+                        (snapshot["from_id"], snapshot["to_id"], snapshot["dep_type"]),
+                    )
+                elif action == "dep_remove":
+                    self.conn.execute(
+                        "DELETE FROM deps WHERE from_id = ? AND to_id = ?",
+                        (snapshot["from_id"], snapshot["to_id"]),
+                    )
 
 
 class DryRunConnection:
