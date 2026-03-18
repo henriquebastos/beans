@@ -390,6 +390,23 @@ class TestDryRunMode:
         _, bean = invoke_agent("show", created["id"])
         assert bean["assignee"] is None
 
+    def test_dry_run_rebuild_does_not_persist(self, dbfile, tmp_path):
+        runner = CliRunner()
+        runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+
+        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        journal_file = str(tmp_path / "journal.jsonl")
+        with open(journal_file, "w") as f:
+            f.write(result.output)
+
+        target_db = str(tmp_path / "target.db")
+        result = runner.invoke(app, ["--db", target_db, "--dry-run", "rebuild", journal_file])
+        assert result.exit_code == 0
+
+        result = runner.invoke(app, ["--db", target_db, "--json", "list"])
+        data = json.loads(result.output)
+        assert data == []
+
 
 class TestSchemaCommand:
     """'beans schema' outputs JSON schemas for all models."""
