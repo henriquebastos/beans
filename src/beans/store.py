@@ -219,6 +219,8 @@ class BeanStore(BaseStore):
 
     def claim(self, bean_id, actor) -> Bean:
         bean = self.get(bean_id)
+        if bean.status == "closed":
+            raise ValueError(f"Bean {bean_id} is closed")
         if bean.assignee == actor:
             return bean
         if bean.assignee:
