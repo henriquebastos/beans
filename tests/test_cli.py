@@ -56,6 +56,16 @@ class TestCreateCommand:
         assert exit_code == 0
         assert data["body"] == ""
 
+    def test_create_with_type(self, invoke_agent):
+        exit_code, data = invoke_agent("create", "Design review", "--type", "epic")
+        assert exit_code == 0
+        assert data["type"] == "epic"
+
+    def test_create_without_type_defaults_task(self, invoke_agent):
+        exit_code, data = invoke_agent("create", "Fix auth")
+        assert exit_code == 0
+        assert data["type"] == "task"
+
 
 class TestListCommand:
     """'beans list' lists all beans."""
@@ -129,6 +139,13 @@ class TestUpdateCommand:
         exit_code, data = invoke_agent("update", created["id"], "--body", "Detailed description")
         assert exit_code == 0
         assert data["body"] == "Detailed description"
+
+    def test_update_type(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("update", created["id"], "--type", "bug")
+        assert exit_code == 0
+        assert data["type"] == "bug"
 
     def test_update_nonexistent_bean(self, invoke_human):
         assert invoke_human("update", "bean-00000000", "--title", "Nope") != 0

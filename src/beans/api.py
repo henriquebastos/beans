@@ -6,8 +6,8 @@ from beans.models import Bean, BeanNotFoundError, BeanUpdate
 from beans.store import BeanStore
 
 
-def create_bean(store: BeanStore, title, body="", parent_id=None) -> Bean:
-    bean = Bean(title=title, body=body, parent_id=parent_id)
+def create_bean(store: BeanStore, title, **fields) -> Bean:
+    bean = Bean(title=title, **fields)
     store.create(bean)
     return bean
 
