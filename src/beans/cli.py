@@ -12,16 +12,14 @@ import typer
 from beans.api import claim_bean, close_bean, create_bean, release_bean, release_mine, update_bean
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
-from beans.config import config_path, load_config, load_projects, projects_path, save_projects
-from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep, Error
+from beans.config import config_path, load_config
+from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
 
 app = typer.Typer()
 dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
-project_app = typer.Typer()
-app.add_typer(project_app, name="project")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
 
@@ -65,10 +63,6 @@ def output(data, json=False, fields=None) -> str:
             return data.model_dump_json()
         case Dep(), False:
             return f"{data.from_id} {data.dep_type} {data.to_id}"
-        case CrossDep(), True:
-            return data.model_dump_json()
-        case CrossDep(), False:
-            return f"{data.project}:{data.from_id} {data.dep_type} {data.to_id}"
         case list(), True:
             return "[" + ",".join(i.model_dump_json() for i in data) + "]"
         case list(), False:
@@ -417,19 +411,13 @@ def dep_add(
     from_id: BeanIdArg,
     to_id: BeanIdArg,
     dep_type: Annotated[str, typer.Option("--type", help="Dependency type")] = "blocks",
-    project: Annotated[str | None, typer.Option(help="Remote project name for cross-project dep")] = None,
 ):
     """Add a dependency between two beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        if project:
-            cross_dep = CrossDep(project=project, from_id=from_id, to_id=to_id, dep_type=dep_type)
-            store.cross_dep.add(cross_dep)
-            typer.echo(output(cross_dep, cfg.json))
-        else:
-            dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
-            store.dep.add(dep)
-            typer.echo(output(dep, cfg.json))
+        dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
+        store.dep.add(dep)
+        typer.echo(output(dep, cfg.json))
 
 
 @dep_app.command("remove")
@@ -437,56 +425,11 @@ def dep_remove(
     ctx: typer.Context,
     from_id: BeanIdArg,
     to_id: BeanIdArg,
-    project: Annotated[str | None, typer.Option(help="Remote project name for cross-project dep")] = None,
 ):
     """Remove a dependency between two beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        if project:
-            if store.cross_dep.remove(project, from_id, to_id) == 0:
-                error(cfg, BeanNotFoundError(f"No cross-project dependency from {project}:{from_id} to {to_id}"))
-            if not cfg.json:
-                typer.echo(f"Removed {project}:{from_id} -> {to_id}")
-        else:
-            if store.dep.remove(from_id, to_id) == 0:
-                error(cfg, BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
-            if not cfg.json:
-                typer.echo(f"Removed {from_id} -> {to_id}")
-
-
-@project_app.command("add")
-def project_add(
-    ctx: typer.Context,
-    name: str,
-    path: Annotated[str, typer.Option(help="Path to the project's .beans/ directory")],
-):
-    """Register a project for cross-project dependencies."""
-    pp = projects_path()
-    projects = load_projects(pp)
-    projects[name] = path
-    save_projects(pp, projects)
-    typer.echo(f"Registered {name} -> {path}")
-
-
-@project_app.command("list")
-def project_list(ctx: typer.Context):
-    """List registered projects."""
-    projects = load_projects(projects_path())
-    if not projects:
-        typer.echo("No projects registered.")
-        return
-    for name, path in sorted(projects.items()):
-        typer.echo(f"{name}  {path}")
-
-
-@project_app.command("remove")
-def project_remove(ctx: typer.Context, name: str):
-    """Remove a registered project."""
-    pp = projects_path()
-    projects = load_projects(pp)
-    if name not in projects:
-        typer.echo(f"Project '{name}' not found", err=True)
-        raise typer.Exit(code=1)
-    del projects[name]
-    save_projects(pp, projects)
-    typer.echo(f"Removed {name}")
+        if store.dep.remove(from_id, to_id) == 0:
+            error(cfg, BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
+        if not cfg.json:
+            typer.echo(f"Removed {from_id} -> {to_id}")
