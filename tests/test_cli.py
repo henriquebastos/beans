@@ -9,8 +9,6 @@ from typer.testing import CliRunner
 # Internal imports
 from beans.cli import app
 
-runner = CliRunner()
-
 
 @pytest.fixture()
 def dbfile(tmp_path):
@@ -19,6 +17,8 @@ def dbfile(tmp_path):
 
 @pytest.fixture()
 def cli(dbfile):
+    runner = CliRunner()
+
     def invoke(cmd):
         result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
         return result.exit_code, result.output
@@ -225,10 +225,11 @@ class TestDryRunMode:
             f.write(journal)
 
         target_db = str(tmp_path / "target.db")
-        result = runner.invoke(app, ["--db", target_db, "--dry-run", "rebuild", journal_file])
+        target = CliRunner()
+        result = target.invoke(app, ["--db", target_db, "--dry-run", "rebuild", journal_file])
         assert result.exit_code == 0
 
-        result = runner.invoke(app, ["--db", target_db, "--json", "list"])
+        result = target.invoke(app, ["--db", target_db, "--json", "list"])
         assert json.loads(result.output) == []
 
 
@@ -368,10 +369,11 @@ class TestRebuildCommand:
             f.write(journal)
 
         target_db = str(tmp_path / "rebuilt.db")
-        result = runner.invoke(app, ["--db", target_db, "rebuild", journal_file])
+        target = CliRunner()
+        result = target.invoke(app, ["--db", target_db, "rebuild", journal_file])
         assert result.exit_code == 0
 
-        result = runner.invoke(app, ["--db", target_db, "--json", "list"])
+        result = target.invoke(app, ["--db", target_db, "--json", "list"])
         data = json.loads(result.output)
         assert len(data) == 1
         assert data[0]["id"] == bean["id"]
@@ -387,8 +389,9 @@ class TestRebuildCommand:
             f.write(journal)
 
         target_db = str(tmp_path / "rebuilt.db")
-        result = runner.invoke(app, ["--db", target_db, "rebuild", journal_file])
+        target = CliRunner()
+        result = target.invoke(app, ["--db", target_db, "rebuild", journal_file])
         assert result.exit_code == 0
 
-        result = runner.invoke(app, ["--db", target_db, "--json", "show", bean["id"]])
+        result = target.invoke(app, ["--db", target_db, "--json", "show", bean["id"]])
         assert json.loads(result.output)["title"] == "Updated"
