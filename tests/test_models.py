@@ -7,7 +7,7 @@ from pydantic import ValidationError
 # Pip imports
 import pytest
 
-from beans.models import Bean, Error
+from beans.models import Bean, BeanId, Error
 
 FIXED_TIME = datetime(2025, 1, 1, tzinfo=UTC)
 
@@ -95,10 +95,18 @@ class TestErrorModel:
         assert err.model_dump() == {"message": "not found"}
 
 
-class TestBeanIdUniqueness:
-    """Each Bean gets a unique id."""
+class TestBeanId:
+    """BeanId validates prefix and generates unique ids."""
 
     def test_two_beans_have_different_ids(self):
         a = Bean(title="First")
         b = Bean(title="Second")
         assert a.id != b.id
+
+    def test_accepts_prefix_for_matching(self):
+        bid = BeanId("bean-a3")
+        assert bid == "bean-a3"
+
+    def test_rejects_missing_prefix(self):
+        with pytest.raises(ValueError, match="Invalid bean id"):
+            BeanId("not-a-bean")
