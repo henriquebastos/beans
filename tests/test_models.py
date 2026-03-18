@@ -82,6 +82,10 @@ class TestBeanValidation:
         with pytest.raises(ValidationError):
             Bean(title="Bad", priority=-1)
 
+    def test_invalid_type(self):
+        with pytest.raises(ValidationError):
+            Bean(title="Bad", type="invalid")
+
 
 class TestErrorModel:
     """Error model for structured error output."""
