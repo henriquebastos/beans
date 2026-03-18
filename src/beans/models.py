@@ -49,17 +49,10 @@ class Dep(BaseModel, frozen=True):
     dep_type: str = "blocks"
 
 
-class CrossDep(BaseModel, frozen=True):
-    project: str
-    from_id: BeanId
-    to_id: BeanId
-    dep_type: str = "blocks"
-
-
 class Bean(BaseModel):
     id: BeanId = Field(default_factory=BeanId.generate)
     title: str
-    type: Literal["task", "bug", "epic"] = "task"
+    type: Literal["task", "bug", "epic", "project"] = "task"
     status: Literal["open", "in_progress", "closed"] = "open"
     priority: int = Field(default=2, ge=0, le=4)
     body: str = ""
@@ -74,7 +67,7 @@ class Bean(BaseModel):
 
 class BeanUpdate(BaseModel):
     title: str | None = None
-    type: Literal["task", "bug", "epic"] | None = None
+    type: Literal["task", "bug", "epic", "project"] | None = None
     status: Literal["open", "in_progress", "closed"] | None = None
     priority: int | None = Field(default=None, ge=0, le=4)
     body: str | None = None

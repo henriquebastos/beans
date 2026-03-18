@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 # Internal imports
-from beans.models import Bean, CrossDep, Dep
+from beans.models import Bean, Dep
 from beans.store import Store
 
 
@@ -227,44 +227,4 @@ class TestJournalDepTriggers:
         dep_entries = [e for e in entries if e["action"] == "dep_remove"]
         assert len(dep_entries) == 1
 
-    def test_cross_dep_add_creates_journal_entry(self, store):
-        bean = store.bean.create(Bean(title="Task"))
-        store.cross_dep.add(CrossDep(project="remote", from_id="bean-aabbccdd", to_id=bean.id))
 
-        entries = journal_entries(store)
-        cross_entries = [e for e in entries if e["action"] == "cross_dep_add"]
-        assert len(cross_entries) == 1
-
-    def test_cross_dep_remove_creates_journal_entry(self, store):
-        bean = store.bean.create(Bean(title="Task"))
-        store.cross_dep.add(CrossDep(project="remote", from_id="bean-aabbccdd", to_id=bean.id))
-        store.cross_dep.remove("remote", "bean-aabbccdd", bean.id)
-
-        entries = journal_entries(store)
-        cross_entries = [e for e in entries if e["action"] == "cross_dep_remove"]
-        assert len(cross_entries) == 1
-
-
-class TestJournalCrossDepReplay:
-    """Journal replay restores cross-project dependencies."""
-
-    def test_replay_restores_cross_deps(self, store):
-        bean = store.bean.create(Bean(title="Task"))
-        dep = CrossDep(project="remote", from_id="bean-aabbccdd", to_id=bean.id)
-        store.cross_dep.add(dep)
-        lines = list(store.journal.export())
-
-        with Store(sqlite3.connect(":memory:")) as target:
-            target.journal.replay(lines)
-            assert target.cross_dep.list(bean.id) == [dep]
-
-    def test_replay_cross_dep_add_and_remove(self, store):
-        bean = store.bean.create(Bean(title="Task"))
-        dep = CrossDep(project="remote", from_id="bean-aabbccdd", to_id=bean.id)
-        store.cross_dep.add(dep)
-        store.cross_dep.remove("remote", "bean-aabbccdd", bean.id)
-        lines = list(store.journal.export())
-
-        with Store(sqlite3.connect(":memory:")) as target:
-            target.journal.replay(lines)
-            assert target.cross_dep.list(bean.id) == []
