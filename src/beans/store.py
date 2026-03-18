@@ -157,6 +157,14 @@ class BeanStore:
         cursor = self.conn.execute("SELECT * FROM beans")
         return [Bean(**r) for r in rows(cursor)]
 
+    def search(self, query) -> list[Bean]:
+        pattern = f"%{query}%"
+        cursor = self.conn.execute(
+            "SELECT * FROM beans WHERE title LIKE ? OR body LIKE ?",
+            (pattern, pattern),
+        )
+        return [Bean(**r) for r in rows(cursor)]
+
     def list_by_assignee(self, actor) -> list[Bean]:
         cursor = self.conn.execute("SELECT * FROM beans WHERE assignee = ?", (actor,))
         return [Bean(**r) for r in rows(cursor)]
