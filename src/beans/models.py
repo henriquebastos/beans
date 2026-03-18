@@ -72,6 +72,11 @@ class Bean(BaseModel):
     close_reason: str | None = None
 
 
+class Label(BaseModel, frozen=True):
+    bean_id: BeanId
+    label: str
+
+
 class BeanUpdate(BaseModel):
     title: str | None = None
     type: Literal["task", "bug", "epic"] | None = None

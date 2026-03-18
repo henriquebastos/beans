@@ -13,13 +13,15 @@ from beans.api import claim_bean, close_bean, create_bean, release_bean, release
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config, load_projects, projects_path, save_projects
-from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep, Error
+from beans.models import Bean, BeanId, BeanNotFoundError, CrossDep, Dep, Error, Label
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
 
 app = typer.Typer()
 dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
+label_app = typer.Typer()
+app.add_typer(label_app, name="label")
 project_app = typer.Typer()
 app.add_typer(project_app, name="project")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
@@ -30,6 +32,7 @@ class Config(NamedTuple):
     json: bool = False
     dry_run: bool = False
     fields: list[str] | None = None
+    label: str | None = None
 
 
 @app.callback()
@@ -39,8 +42,10 @@ def main(
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
     fields: Annotated[str | None, typer.Option("--fields", help="Comma-separated list of fields to include")] = None,
+    label: Annotated[str | None, typer.Option("--label", help="Filter by label")] = None,
 ):
-    ctx.obj = Config(db=db, json=json_output, dry_run=dry_run, fields=fields.split(",") if fields else None)
+    parsed_fields = fields.split(",") if fields else None
+    ctx.obj = Config(db=db, json=json_output, dry_run=dry_run, fields=parsed_fields, label=label)
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
@@ -69,6 +74,10 @@ def output(data, json=False, fields=None) -> str:
             return data.model_dump_json()
         case CrossDep(), False:
             return f"{data.project}:{data.from_id} {data.dep_type} {data.to_id}"
+        case Label(), True:
+            return data.model_dump_json()
+        case Label(), False:
+            return f"{data.bean_id}  {data.label}"
         case list(), True:
             return "[" + ",".join(i.model_dump_json() for i in data) + "]"
         case list(), False:
@@ -238,7 +247,10 @@ def list_beans(ctx: typer.Context):
     """List all beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = store.bean.list()
+        if cfg.label:
+            beans = store.label.beans_by_label(cfg.label)
+        else:
+            beans = store.bean.list()
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -249,6 +261,9 @@ def ready(ctx: typer.Context):
     cfg = ctx.obj
     with get_store(cfg) as store:
         beans = store.bean.ready()
+        if cfg.label:
+            labeled_ids = {b.id for b in store.label.beans_by_label(cfg.label)}
+            beans = [b for b in beans if b.id in labeled_ids]
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -490,3 +505,32 @@ def project_remove(ctx: typer.Context, name: str):
     del projects[name]
     save_projects(pp, projects)
     typer.echo(f"Removed {name}")
+
+
+@label_app.command("add")
+def label_add(ctx: typer.Context, bean_id: BeanIdArg, label: str):
+    """Add a label to a bean."""
+    cfg = ctx.obj
+    with get_store(cfg) as store:
+        result = store.label.add(bean_id, label)
+    typer.echo(output(result, cfg.json))
+
+
+@label_app.command("remove")
+def label_remove(ctx: typer.Context, bean_id: BeanIdArg, label: str):
+    """Remove a label from a bean."""
+    cfg = ctx.obj
+    with get_store(cfg) as store:
+        if store.label.remove(bean_id, label) == 0:
+            error(cfg, BeanNotFoundError(f"No label '{label}' on {bean_id}"))
+    if not cfg.json:
+        typer.echo(f"Removed {label} from {bean_id}")
+
+
+@label_app.command("list")
+def label_list(ctx: typer.Context, bean_id: BeanIdArg):
+    """List labels on a bean."""
+    cfg = ctx.obj
+    with get_store(cfg) as store:
+        labels = store.label.list(bean_id)
+    typer.echo(output(labels, cfg.json))
