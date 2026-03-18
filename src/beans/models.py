@@ -49,6 +49,13 @@ class Dep(BaseModel, frozen=True):
     dep_type: str = "blocks"
 
 
+class CrossDep(BaseModel, frozen=True):
+    project: str
+    from_id: BeanId
+    to_id: BeanId
+    dep_type: str = "blocks"
+
+
 class Bean(BaseModel):
     id: BeanId = Field(default_factory=BeanId.generate)
     title: str
