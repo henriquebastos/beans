@@ -405,3 +405,82 @@ class TestInputValidation:
 
     def test_show_invalid_id_format(self, invoke_human):
         assert invoke_human("show", "not-a-bean-id") != 0
+
+
+class TestExportJournalCommand:
+    """'beans export-journal' exports journal entries as JSONL."""
+
+    def test_export_empty(self, dbfile):
+        runner = CliRunner()
+        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        assert result.exit_code == 0
+        assert result.output.strip() == ""
+
+    def test_export_after_create(self, dbfile):
+        runner = CliRunner()
+        runner.invoke(app, ["--db", dbfile, "create", "Fix auth"])
+
+        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        assert result.exit_code == 0
+        lines = result.output.strip().split("\n")
+        assert len(lines) == 1
+        entry = json.loads(lines[0])
+        assert entry["action"] == "create"
+
+    def test_export_crud_cycle(self, dbfile):
+        runner = CliRunner()
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean = json.loads(result.output)
+
+        runner.invoke(app, ["--db", dbfile, "update", bean["id"], "--title", "Updated"])
+        runner.invoke(app, ["--db", dbfile, "delete", bean["id"]])
+
+        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        assert result.exit_code == 0
+        lines = result.output.strip().split("\n")
+        assert len(lines) == 3
+        actions = [json.loads(line)["action"] for line in lines]
+        assert actions == ["create", "update", "delete"]
+
+
+class TestRebuildCommand:
+    """'beans rebuild' rebuilds a database from a JSONL file."""
+
+    def test_rebuild_from_journal(self, dbfile, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean = json.loads(result.output)
+
+        journal_file = str(tmp_path / "journal.jsonl")
+        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        with open(journal_file, "w") as f:
+            f.write(result.output)
+
+        target_db = str(tmp_path / "rebuilt.db")
+        result = runner.invoke(app, ["--db", target_db, "rebuild", journal_file])
+        assert result.exit_code == 0
+
+        result = runner.invoke(app, ["--db", target_db, "--json", "list"])
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["id"] == bean["id"]
+        assert data[0]["title"] == "Fix auth"
+
+    def test_rebuild_with_updates(self, dbfile, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+        bean = json.loads(result.output)
+        runner.invoke(app, ["--db", dbfile, "update", bean["id"], "--title", "Updated"])
+
+        journal_file = str(tmp_path / "journal.jsonl")
+        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        with open(journal_file, "w") as f:
+            f.write(result.output)
+
+        target_db = str(tmp_path / "rebuilt.db")
+        result = runner.invoke(app, ["--db", target_db, "rebuild", journal_file])
+        assert result.exit_code == 0
+
+        result = runner.invoke(app, ["--db", target_db, "--json", "show", bean["id"]])
+        data = json.loads(result.output)
+        assert data["title"] == "Updated"
