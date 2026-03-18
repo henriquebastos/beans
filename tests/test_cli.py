@@ -481,6 +481,35 @@ class TestGraphCommand:
         assert "closed" in output
 
 
+class TestConfigCommand:
+    """'beans config' shows config path and values."""
+
+    def test_config_shows_xdg_path(self, cli, tmp_path, monkeypatch):
+        config_dir = tmp_path / ".config" / "beans"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+
+        exit_code, output = cli("config")
+        assert exit_code == 0
+        assert str(config_dir / "config.json") in output
+
+    def test_config_shows_no_configuration(self, cli, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+
+        exit_code, output = cli("config")
+        assert exit_code == 0
+        assert "No configuration set." in output
+
+    def test_config_shows_values(self, cli, tmp_path, monkeypatch):
+        config_dir = tmp_path / ".config" / "beans"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.json").write_text(json.dumps({"actor": "alice"}))
+
+        exit_code, output = cli("config")
+        assert exit_code == 0
+        assert "alice" in output
+
+
 class TestRecipeCommand:
     """'beans recipe <client>' outputs agent-specific instructions."""
 
