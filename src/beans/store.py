@@ -263,7 +263,8 @@ class BeanStore(BaseStore):
                 WHERE b.parent_id IS NOT NULL AND b.status != 'closed'
             )
             SELECT * FROM beans
-            WHERE id NOT IN (SELECT id FROM blocked_by_deps)
+            WHERE status != 'closed'
+              AND id NOT IN (SELECT id FROM blocked_by_deps)
               AND id NOT IN (SELECT id FROM blocked_by_children)
             ORDER BY priority
         """)
