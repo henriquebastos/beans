@@ -251,6 +251,12 @@ class TestBeanStoreClaim:
         with pytest.raises(BeanNotFoundError):
             store.bean.claim(BeanId("bean-00000000"), "alice")
 
+    def test_claim_closed_bean_raises(self, store):
+        bean = store.bean.create(Bean(title="Fix auth", status="closed"))
+
+        with pytest.raises(ValueError, match="closed"):
+            store.bean.claim(bean.id, "alice")
+
 
 class TestBeanStoreRelease:
     """BeanStore.release() clears assignee and sets status=open."""
