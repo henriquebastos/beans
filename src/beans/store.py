@@ -329,7 +329,7 @@ class Store(BaseStore):
         wrapped = DryRunConnection(conn) if dry_run else conn
         self.bean = BeanStore(wrapped)
         self.dep = DepStore(wrapped)
-        self.journal = JournalStore(conn)
+        self.journal = JournalStore(wrapped)
         self.dry_run = dry_run
 
     @classmethod
