@@ -66,7 +66,7 @@ def filter_fields(data, fields, dumps=json.dumps) -> str:
 
 
 def output(data, json=False, fields=None) -> str:
-    if fields:
+    if json and fields:
         return filter_fields(data, fields)
     match data, json:
         case Bean(), True:

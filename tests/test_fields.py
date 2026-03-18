@@ -72,10 +72,11 @@ class TestFieldFiltering:
         assert "status" in data
         assert "created_at" in data
 
-    def test_fields_human_output(self, dbfile):
+    def test_fields_ignored_without_json(self, dbfile):
         runner = CliRunner()
         runner.invoke(app, ["--db", dbfile, "create", "Fix auth"])
 
         result = runner.invoke(app, ["--db", dbfile, "--fields", "id,title", "list"])
         assert result.exit_code == 0
         assert "Fix auth" in result.output
+        assert "{" not in result.output
