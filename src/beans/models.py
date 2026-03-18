@@ -62,6 +62,7 @@ class Bean(BaseModel):
     ref_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     closed_at: datetime | None = None
+    close_reason: str | None = None
 
     @classmethod
     def fields_validate(cls, **fields):

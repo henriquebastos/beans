@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS beans (
     created_by TEXT,
     ref_id TEXT,
     created_at TEXT NOT NULL,
-    closed_at TEXT
+    closed_at TEXT,
+    close_reason TEXT
 );
 
 CREATE TABLE IF NOT EXISTS deps (
@@ -70,7 +71,8 @@ BEGIN
         'created_by', NEW.created_by,
         'ref_id', NEW.ref_id,
         'created_at', NEW.created_at,
-        'closed_at', NEW.closed_at
+        'closed_at', NEW.closed_at,
+        'close_reason', NEW.close_reason
     ));
 END;
 
@@ -90,7 +92,8 @@ BEGIN
         'created_by', NEW.created_by,
         'ref_id', NEW.ref_id,
         'created_at', NEW.created_at,
-        'closed_at', NEW.closed_at
+        'closed_at', NEW.closed_at,
+        'close_reason', NEW.close_reason
     ));
 END;
 
@@ -110,20 +113,24 @@ BEGIN
         'created_by', OLD.created_by,
         'ref_id', OLD.ref_id,
         'created_at', OLD.created_at,
-        'closed_at', OLD.closed_at
+        'closed_at', OLD.closed_at,
+        'close_reason', OLD.close_reason
     ));
 END;
 """
 
 
-UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
+UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at", "close_reason"}
 
-BEAN_COLUMNS = "id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at, closed_at"
+BEAN_COLUMNS = (
+    "id, title, type, status, priority, body, parent_id, assignee,"
+    " created_by, ref_id, created_at, closed_at, close_reason"
+)
 
-INSERT_BEAN = f"INSERT INTO beans ({BEAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+INSERT_BEAN = f"INSERT INTO beans ({BEAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 UPDATE_BEAN_ALL = """UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,
-    parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?
+    parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?, close_reason=?
     WHERE id=?"""
 
 
@@ -133,6 +140,7 @@ def bean_values(bean: Bean) -> tuple:
         bean.body, bean.parent_id, bean.assignee, bean.created_by,
         bean.ref_id, bean.created_at.isoformat(),
         bean.closed_at.isoformat() if bean.closed_at else None,
+        bean.close_reason,
     )
 
 
