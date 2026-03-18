@@ -13,6 +13,7 @@ from beans.api import (
     delete_bean,
     graph,
     list_beans,
+    list_deps,
     ready_beans,
     release_bean,
     release_mine,
@@ -285,6 +286,20 @@ class TestStats:
         result = stats(store)
         assert result["by_status"]["open"] == 1
         assert result["by_status"]["closed"] == 1
+
+
+class TestListDeps:
+    """list_deps() returns dependencies from a bean."""
+
+    def test_list_deps_returns_deps(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        add_dep(store, a.id, b.id)
+        assert list_deps(store, a.id) == [Dep(from_id=a.id, to_id=b.id)]
+
+    def test_list_deps_empty(self, store):
+        a = create_bean(store, "Task A")
+        assert list_deps(store, a.id) == []
 
 
 class TestAddDep:

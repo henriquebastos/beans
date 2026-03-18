@@ -82,6 +82,10 @@ def stats(store: Store) -> dict:
     return store.bean.stats()
 
 
+def list_deps(store: Store, from_id) -> list[Dep]:
+    return store.dep.list(from_id)
+
+
 def add_dep(store: Store, from_id, to_id, dep_type="blocks") -> Dep:
     dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
     store.dep.add(dep)
