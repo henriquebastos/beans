@@ -303,6 +303,60 @@ uv run beans dep add <blocker-id> <blocked-id>
 - If a bean is no longer needed, close it with an update explaining why
 - If you discover new work while working on a bean, create a new bean for it
 
+### Bean-first rule
+
+Every task MUST become a bean before any code or research begins. No exceptions.
+If you discover work mid-task, create a bean for it before starting.
+
+### Bean lifecycle
+
+A bean can only be closed once tests pass and changes are committed:
+
+```
+beans create → beans claim → implement → lint → test → commit → beans close
+```
+
+After implementation is complete, ALWAYS run linters and tests before closing the bean.
+This is part of the workflow, not an optional step.
+
+### Agent workflow modes
+
+When a project uses beans for task tracking, the agent operates in one of two modes.
+The user chooses the mode at the start of a session. Default is **collaborative**.
+
+#### Autonomous mode
+
+The agent drives the full loop without pausing:
+
+```
+beans ready → pick highest priority → beans claim →
+read bean → implement (TDD) → lint → test → commit →
+beans close → next bean
+```
+
+- Auto-pick the highest priority unblocked bean from `beans ready`
+- Auto-claim before starting
+- Auto-commit after each green (feat) and after each refactor
+- Auto-close the bean after commit
+- If new work is discovered, create a bean for it and continue the current task
+- Stop after completing all ready beans or when the user interrupts
+
+#### Collaborative mode
+
+The agent pauses at decision points and waits for the user:
+
+```
+beans ready → user picks → beans claim →
+read bean → implement (TDD) → wait for commit approval →
+user reviews → beans close
+```
+
+- Show `beans ready` and wait for the user to pick a task
+- Claim after user confirms
+- Implement (RED → GREEN), then pause — do not commit without user approval
+- After commit, pause before closing the bean
+- If new work is discovered, create a bean and ask the user what to do
+
 ## Tools
 
 - **uv** — package management, running, building
