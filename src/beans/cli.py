@@ -87,13 +87,17 @@ def init():
 def create(
     ctx: typer.Context,
     title: str,
+    type: Annotated[str | None, typer.Option(help="Bean type (task, bug, epic)")] = None,
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
 ):
     """Create a new bean."""
     cfg = ctx.obj
+    kwargs = {"body": body, "parent_id": parent}
+    if type:
+        kwargs["type"] = type
     with get_store(cfg) as store:
-        bean = create_bean(store.bean, title, body=body, parent_id=parent)
+        bean = create_bean(store.bean, title, **kwargs)
 
     typer.echo(output(bean, cfg.json))
 
@@ -116,6 +120,7 @@ def update(
     ctx: typer.Context,
     bean_id: BeanIdArg,
     title: Annotated[str | None, typer.Option(help="New title")] = None,
+    type: Annotated[str | None, typer.Option(help="New type (task, bug, epic)")] = None,
     status: Annotated[str | None, typer.Option(help="New status")] = None,
     priority: Annotated[int | None, typer.Option(help="New priority")] = None,
     body: Annotated[str | None, typer.Option(help="New body")] = None,
@@ -123,7 +128,7 @@ def update(
 ):
     """Update fields on a bean."""
     cfg = ctx.obj
-    fields = {"title": title, "status": status, "priority": priority, "body": body, "parent_id": parent}
+    fields = {"title": title, "type": type, "status": status, "priority": priority, "body": body, "parent_id": parent}
     try:
         with get_store(cfg) as store:
             bean = update_bean(store.bean, bean_id, **{k: v for k, v in fields.items() if v is not None})
