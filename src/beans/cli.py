@@ -9,7 +9,21 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
-from beans.api import claim_bean, close_bean, create_bean, release_bean, release_mine, update_bean
+from beans.api import (
+    add_dep,
+    claim_bean,
+    close_bean,
+    create_bean,
+    delete_bean,
+    list_beans,
+    ready_beans,
+    release_bean,
+    release_mine,
+    remove_dep,
+    search_beans,
+    show_bean,
+    update_bean,
+)
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
@@ -125,7 +139,7 @@ def show(ctx: typer.Context, bean_id: BeanIdArg):
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            bean = store.bean.get(bean_id)
+            bean = show_bean(store.bean, bean_id)
     except BeanNotFoundError as e:
         error(cfg, e)
 
@@ -176,9 +190,11 @@ def close(
 def delete(ctx: typer.Context, bean_id: BeanIdArg):
     """Delete a bean."""
     cfg = ctx.obj
-    with get_store(cfg) as store:
-        if store.bean.delete(bean_id) == 0:
-            error(cfg, BeanNotFoundError(bean_id))
+    try:
+        with get_store(cfg) as store:
+            delete_bean(store.bean, bean_id)
+    except BeanNotFoundError as e:
+        error(cfg, e)
 
     if not cfg.json:
         typer.echo(f"Deleted {bean_id}")
@@ -228,11 +244,11 @@ def release(
 
 
 @app.command("list")
-def list_beans(ctx: typer.Context):
+def list_cmd(ctx: typer.Context):
     """List all beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = store.bean.list()
+        beans = list_beans(store.bean)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -242,7 +258,7 @@ def ready(ctx: typer.Context):
     """List only unblocked beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = store.bean.ready()
+        beans = ready_beans(store.bean)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -305,7 +321,7 @@ def graph_cmd(ctx: typer.Context):
     """Show dependency tree visualization."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        data = build_graph(store.bean.list(), store.dep.list_all())
+        data = build_graph(list_beans(store.bean), store.dep.list_all())
 
     if cfg.json:
         typer.echo(json.dumps(data))
@@ -320,7 +336,7 @@ def search(ctx: typer.Context, query: str):
     """Search beans by title and body."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        beans = store.bean.search(query)
+        beans = search_beans(store.bean, query)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -415,9 +431,8 @@ def dep_add(
     """Add a dependency between two beans."""
     cfg = ctx.obj
     with get_store(cfg) as store:
-        dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
-        store.dep.add(dep)
-        typer.echo(output(dep, cfg.json))
+        dep = add_dep(store.dep, from_id, to_id, dep_type)
+    typer.echo(output(dep, cfg.json))
 
 
 @dep_app.command("remove")
@@ -428,8 +443,11 @@ def dep_remove(
 ):
     """Remove a dependency between two beans."""
     cfg = ctx.obj
-    with get_store(cfg) as store:
-        if store.dep.remove(from_id, to_id) == 0:
-            error(cfg, BeanNotFoundError(f"No dependency from {from_id} to {to_id}"))
-        if not cfg.json:
-            typer.echo(f"Removed {from_id} -> {to_id}")
+    try:
+        with get_store(cfg) as store:
+            remove_dep(store.dep, from_id, to_id)
+    except BeanNotFoundError as e:
+        error(cfg, e)
+
+    if not cfg.json:
+        typer.echo(f"Removed {from_id} -> {to_id}")

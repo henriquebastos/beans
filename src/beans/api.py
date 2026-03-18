@@ -2,14 +2,18 @@
 from datetime import UTC, datetime
 
 # Internal imports
-from beans.models import Bean, BeanNotFoundError, BeanUpdate
-from beans.store import BeanStore
+from beans.models import Bean, BeanNotFoundError, BeanUpdate, Dep
+from beans.store import BeanStore, DepStore
 
 
 def create_bean(store: BeanStore, title, **fields) -> Bean:
     bean = Bean(title=title, **fields)
     store.create(bean)
     return bean
+
+
+def show_bean(store: BeanStore, bean_id) -> Bean:
+    return store.get(bean_id)
 
 
 def update_bean(store: BeanStore, bean_id, **fields) -> Bean:
@@ -27,6 +31,12 @@ def close_bean(store: BeanStore, bean_id, reason=None) -> Bean:
     if store.update(bean_id, **fields) == 0:
         raise BeanNotFoundError(bean_id)
     return store.get(bean_id)
+
+
+def delete_bean(store: BeanStore, bean_id) -> Bean:
+    bean = store.get(bean_id)
+    store.delete(bean_id)
+    return bean
 
 
 def claim_bean(store: BeanStore, bean_id, actor) -> Bean:
@@ -56,8 +66,33 @@ def release_mine(store: BeanStore, actor) -> list[Bean]:
     return [release_bean(store, bean.id, actor) for bean in beans]
 
 
+def list_beans(store: BeanStore) -> list[Bean]:
+    return store.list()
+
+
+def ready_beans(store: BeanStore) -> list[Bean]:
+    return store.ready()
+
+
+def search_beans(store: BeanStore, query) -> list[Bean]:
+    return store.search(query)
+
+
 def stats(store: BeanStore) -> dict:
     return store.stats()
+
+
+def add_dep(dep_store: DepStore, from_id, to_id, dep_type="blocks") -> Dep:
+    dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
+    dep_store.add(dep)
+    return dep
+
+
+def remove_dep(dep_store: DepStore, from_id, to_id) -> int:
+    count = dep_store.remove(from_id, to_id)
+    if count == 0:
+        raise BeanNotFoundError(f"No dependency from {from_id} to {to_id}")
+    return count
 
 
 def graph(beans, deps) -> dict:
