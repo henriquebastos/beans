@@ -64,6 +64,11 @@ class Bean(BaseModel):
     closed_at: datetime | None = None
     close_reason: str | None = None
 
-    @classmethod
-    def fields_validate(cls, **fields):
-        cls.model_validate({"id": "bean-00000000", "title": "validate", **fields})
+
+class BeanUpdate(BaseModel):
+    title: str | None = None
+    type: Literal["task", "bug", "epic"] | None = None
+    status: Literal["open", "in_progress", "closed"] | None = None
+    priority: int | None = Field(default=None, ge=0, le=4)
+    body: str | None = None
+    parent_id: str | None = None
