@@ -477,6 +477,14 @@ class TestInputValidation:
         exit_code, _ = invoke_agent("update", created["id"], "--priority", "5")
         assert exit_code != 0
 
+    def test_create_invalid_type(self, invoke_human):
+        assert invoke_human("create", "Bad", "--type", "invalid") != 0
+
+    def test_update_invalid_type(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+        exit_code, _ = invoke_agent("update", created["id"], "--type", "invalid")
+        assert exit_code != 0
+
     def test_show_invalid_id_format(self, invoke_human):
         assert invoke_human("show", "not-a-bean-id") != 0
 
