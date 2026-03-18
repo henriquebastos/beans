@@ -28,8 +28,8 @@ from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep, DepNotFoundError, Error
-from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
+from beans.workspace import DB_NAME, find_beans_dir, init_project
 
 app = typer.Typer()
 dep_app = typer.Typer()

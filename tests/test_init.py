@@ -7,9 +7,7 @@ from typer.testing import CliRunner
 
 # Internal imports
 from beans.cli import app
-from beans.project import find_beans_dir
-
-runner = CliRunner()
+from beans.workspace import find_beans_dir
 
 
 @pytest.fixture()
@@ -21,53 +19,59 @@ def project_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
-def invoke(project_dir):
+def cli():
+    runner = CliRunner()
+
     def invoke(*args):
-        result = runner.invoke(app, ["--json", *args])
+        return runner.invoke(app, [*args])
+
+    return invoke
+
+
+@pytest.fixture()
+def jcli(cli):
+    def invoke(*args):
+        result = cli("--json", *args)
         data = json.loads(result.output) if result.output.strip() else None
         return result.exit_code, data
 
     return invoke
 
 
-def init_project():
-    return runner.invoke(app, ["init"])
-
-
 class TestInitCommand:
     """'beans init' creates .beans/ directory with db and AGENTS.md."""
 
-    def test_init_creates_beans_dir(self, project_dir):
-        result = init_project()
+    def test_init_creates_beans_dir(self, project_dir, cli):
+        result = cli("init")
 
         assert result.exit_code == 0
         assert (project_dir / ".beans").is_dir()
 
-    def test_init_creates_db(self, project_dir):
-        init_project()
+    def test_init_creates_db(self, project_dir, cli):
+        cli("init")
 
         assert (project_dir / ".beans" / "beans.db").exists()
 
-    def test_init_creates_agents_md(self, project_dir):
-        init_project()
+    def test_init_creates_agents_md(self, project_dir, cli):
+        cli("init")
 
         agents_file = project_dir / ".beans" / "AGENTS.md"
         assert agents_file.exists()
         assert "beans" in agents_file.read_text().lower()
 
-    def test_init_idempotent(self, project_dir):
-        init_project()
-        result = init_project()
+    def test_init_idempotent(self, project_dir, cli):
+        cli("init")
+        result = cli("init")
 
         assert result.exit_code == 0
 
-    def test_init_does_not_overwrite_existing_agents_md(self, project_dir):
+    def test_init_does_not_overwrite_existing_agents_md(self, project_dir, cli):
         beans_dir = project_dir / ".beans"
         beans_dir.mkdir()
         agents_file = beans_dir / "AGENTS.md"
         agents_file.write_text("custom content")
 
-        init_project()
+        cli("init")
 
         assert agents_file.read_text() == "custom content"
 
@@ -96,21 +100,21 @@ class TestFindBeansDir:
 class TestProjectDiscovery:
     """CLI commands use project discovery to find .beans/beans.db."""
 
-    def test_create_uses_discovered_db(self, project_dir, invoke):
-        init_project()
+    def test_create_uses_discovered_db(self, project_dir, cli, jcli):
+        cli("init")
 
-        exit_code, _ = invoke("create", "Fix auth")
+        exit_code, _ = jcli("create", "Fix auth")
         assert exit_code == 0
 
-        _, data = invoke("list")
+        _, data = jcli("list")
         assert len(data) == 1
         assert data[0]["title"] == "Fix auth"
 
-    def test_db_flag_overrides_discovery(self, project_dir, invoke):
-        init_project()
+    def test_db_flag_overrides_discovery(self, project_dir, cli, jcli):
+        cli("init")
 
         db_path = str(project_dir / "custom.db")
-        runner.invoke(app, ["--db", db_path, "--json", "create", "Custom"])
+        cli("--db", db_path, "--json", "create", "Custom")
 
-        _, data = invoke("list")
+        _, data = jcli("list")
         assert len(data) == 0
