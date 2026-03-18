@@ -58,3 +58,9 @@ def release_mine(store: BeanStore, actor) -> list[Bean]:
 
 def stats(store: BeanStore) -> dict:
     return store.stats()
+
+
+def graph(beans, deps) -> dict:
+    nodes = {b.id: {"id": b.id, "title": b.title, "status": b.status, "parent_id": b.parent_id} for b in beans}
+    edges = [{"from_id": d.from_id, "to_id": d.to_id, "dep_type": d.dep_type} for d in deps]
+    return {"nodes": list(nodes.values()), "edges": edges}

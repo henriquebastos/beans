@@ -235,6 +235,10 @@ class DepStore:
         )
         return [Dep(**r) for r in rows(cursor)]
 
+    def list_all(self) -> list[Dep]:
+        cursor = self.conn.execute("SELECT from_id, to_id, dep_type FROM deps")
+        return [Dep(**r) for r in rows(cursor)]
+
     def remove(self, from_id, to_id) -> int:
         with self.conn:
             cursor = self.conn.execute(
