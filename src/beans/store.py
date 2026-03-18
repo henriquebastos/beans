@@ -4,7 +4,7 @@ import sqlite3
 from typing import Self
 
 # Internal imports
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep
+from beans.models import Bean, BeanNotFoundError, Dep
 
 
 def columns(cursor: sqlite3.Cursor) -> list[str]:
@@ -19,6 +19,74 @@ def rows(cursor: sqlite3.Cursor):
     cols = columns(cursor)
     return (row(cols, values) for values in cursor.fetchall())
 
+
+# Result mappers
+
+def one_bean(cursor) -> Bean | None:
+    match = cursor.fetchone()
+    if match is None:
+        return None
+    return Bean(**row(columns(cursor), match))
+
+
+def beans(cursor) -> list[Bean]:
+    return [Bean(**r) for r in rows(cursor)]
+
+
+def deps(cursor) -> list[Dep]:
+    return [Dep(**r) for r in rows(cursor)]
+
+
+# Query builders
+
+UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at", "close_reason"}
+
+
+def bean_values(bean: Bean) -> tuple:
+    return (
+        bean.id, bean.title, bean.type, bean.status, bean.priority,
+        bean.body, bean.parent_id, bean.assignee, bean.created_by,
+        bean.ref_id, bean.created_at.isoformat(),
+        bean.closed_at.isoformat() if bean.closed_at else None,
+        bean.close_reason,
+    )
+
+
+def insert_query(bean: Bean) -> tuple[str, tuple]:
+    sql = (
+        "INSERT INTO beans (id, title, type, status, priority, body, parent_id,"
+        " assignee, created_by, ref_id, created_at, closed_at, close_reason)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    )
+    return sql, bean_values(bean)
+
+
+def update_query(bean_id, **fields) -> tuple[str, list]:
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    sql = f"UPDATE beans SET {set_clause} WHERE id = ?"
+    return sql, [*fields.values(), bean_id]
+
+
+def update_all_query(bean: Bean) -> tuple[str, tuple]:
+    sql = (
+        "UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,"
+        " parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?, close_reason=?"
+        " WHERE id=?"
+    )
+    vals = bean_values(bean)
+    return sql, (*vals[1:], vals[0])
+
+
+def validate_fields(fields, updatable=UPDATABLE_FIELDS) -> None:
+    if (invalid := fields.keys() - updatable):
+        raise ValueError(f"Invalid fields: {invalid}")
+
+
+def bean_snapshot(bean: Bean) -> str:
+    return bean.model_dump_json()
+
+
+# Schema and migrations
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -84,97 +152,60 @@ def migrate(conn, migrations=MIGRATIONS, target=SCHEMA_VERSION) -> None:
     conn.executescript(f"PRAGMA user_version = {target};")
 
 
-UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at", "close_reason"}
-
-BEAN_COLUMNS = (
-    "id, title, type, status, priority, body, parent_id, assignee,"
-    " created_by, ref_id, created_at, closed_at, close_reason"
-)
-
-INSERT_BEAN = f"INSERT INTO beans ({BEAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
-UPDATE_BEAN_ALL = """UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,
-    parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?, close_reason=?
-    WHERE id=?"""
-
-
-def bean_values(bean: Bean) -> tuple:
-    return (
-        bean.id, bean.title, bean.type, bean.status, bean.priority,
-        bean.body, bean.parent_id, bean.assignee, bean.created_by,
-        bean.ref_id, bean.created_at.isoformat(),
-        bean.closed_at.isoformat() if bean.closed_at else None,
-        bean.close_reason,
-    )
-
-
-def bean_snapshot(bean: Bean) -> str:
-    return bean.model_dump_json()
-
+# Sub-stores
 
 class BeanStore:
     def __init__(self, conn):
         self.conn = conn
 
     def create(self, bean: Bean) -> Bean:
+        sql, params = insert_query(bean)
         with self.conn:
-            self.conn.execute(INSERT_BEAN, bean_values(bean))
+            self.conn.execute(sql, params)
             journal_log(self.conn, "create", bean.id, bean_snapshot(bean))
         return bean
 
-    def get(self, bean_id: BeanId) -> Bean:
+    def get(self, bean_id) -> Bean:
         cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
-
-        match = cursor.fetchone()
-        if match is None:
+        bean = one_bean(cursor)
+        if bean is None:
             raise BeanNotFoundError(bean_id)
-
-        return Bean(**row(columns(cursor), match))
+        return bean
 
     def update(self, bean_id, **fields) -> int:
         if not fields:
             return 0
-
-        if (invalid := fields.keys() - UPDATABLE_FIELDS):
-            raise ValueError(f"Invalid fields: {invalid}")
-
-        set_clause = ", ".join(f"{k} = ?" for k in fields)
-        values = [*fields.values(), bean_id]
-
+        validate_fields(fields)
+        sql, params = update_query(bean_id, **fields)
         with self.conn:
-            cursor = self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
+            cursor = self.conn.execute(sql, params)
             if cursor.rowcount:
                 bean = self.get(bean_id)
                 journal_log(self.conn, "update", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
     def delete(self, bean_id) -> int:
-        select = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
-        match = select.fetchone()
-        cols = columns(select) if match else None
+        cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
+        bean = one_bean(cursor)
         with self.conn:
             self.conn.execute("DELETE FROM deps WHERE from_id = ? OR to_id = ?", (bean_id, bean_id))
             cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
-            if cursor.rowcount and match:
-                bean = Bean(**row(cols, match))
+            if cursor.rowcount and bean:
                 journal_log(self.conn, "delete", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
     def list(self) -> list[Bean]:
-        cursor = self.conn.execute("SELECT * FROM beans")
-        return [Bean(**r) for r in rows(cursor)]
+        return beans(self.conn.execute("SELECT * FROM beans"))
 
     def search(self, query) -> list[Bean]:
         pattern = f"%{query}%"
-        cursor = self.conn.execute(
+        return beans(self.conn.execute(
             "SELECT * FROM beans WHERE title LIKE ? OR body LIKE ?",
             (pattern, pattern),
-        )
-        return [Bean(**r) for r in rows(cursor)]
+        ))
 
     def list_by_assignee(self, actor) -> list[Bean]:
-        cursor = self.conn.execute("SELECT * FROM beans WHERE assignee = ?", (actor,))
-        return [Bean(**r) for r in rows(cursor)]
+        return beans(self.conn.execute("SELECT * FROM beans WHERE assignee = ?", (actor,)))
 
     def stats(self) -> dict:
         result = {"by_status": {}, "by_type": {}, "by_assignee": {}}
@@ -188,7 +219,7 @@ class BeanStore:
         return result
 
     def ready(self) -> list[Bean]:
-        cursor = self.conn.execute("""
+        return beans(self.conn.execute("""
             WITH RECURSIVE
             blocked_by_deps(id) AS (
                 SELECT d.to_id
@@ -212,8 +243,7 @@ class BeanStore:
               AND id NOT IN (SELECT id FROM blocked_by_deps)
               AND id NOT IN (SELECT id FROM blocked_by_children)
             ORDER BY priority
-        """)
-        return [Bean(**r) for r in rows(cursor)]
+        """))
 
 
 class DepStore:
@@ -230,15 +260,13 @@ class DepStore:
         return dep
 
     def list(self, from_id) -> list[Dep]:
-        cursor = self.conn.execute(
+        return deps(self.conn.execute(
             "SELECT from_id, to_id, dep_type FROM deps WHERE from_id = ?",
             (from_id,),
-        )
-        return [Dep(**r) for r in rows(cursor)]
+        ))
 
     def list_all(self) -> list[Dep]:
-        cursor = self.conn.execute("SELECT from_id, to_id, dep_type FROM deps")
-        return [Dep(**r) for r in rows(cursor)]
+        return deps(self.conn.execute("SELECT from_id, to_id, dep_type FROM deps"))
 
     def remove(self, from_id, to_id) -> int:
         with self.conn:
@@ -276,12 +304,11 @@ class JournalStore:
                 bean_id = entry["bean_id"]
 
                 if action == "create":
-                    bean = Bean(**snapshot)
-                    self.conn.execute(INSERT_BEAN, bean_values(bean))
+                    sql, params = insert_query(Bean(**snapshot))
+                    self.conn.execute(sql, params)
                 elif action == "update":
-                    bean = Bean(**snapshot)
-                    vals = bean_values(bean)
-                    self.conn.execute(UPDATE_BEAN_ALL, (*vals[1:], vals[0]))
+                    sql, params = update_all_query(Bean(**snapshot))
+                    self.conn.execute(sql, params)
                 elif action == "delete":
                     self.conn.execute("DELETE FROM beans WHERE id=?", (bean_id,))
                 elif action == "dep_add":
@@ -295,6 +322,8 @@ class JournalStore:
                         (snapshot["from_id"], snapshot["to_id"]),
                     )
 
+
+# Composite store
 
 class Store:
     def __init__(self, conn: sqlite3.Connection, dry_run=False):
