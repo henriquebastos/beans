@@ -130,6 +130,21 @@ class TestCloseCommand:
         assert data["status"] == "closed"
         assert data["closed_at"] is not None
 
+    def test_close_with_reason(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("close", created["id"], "--reason", "Completed in PR #42")
+        assert exit_code == 0
+        assert data["status"] == "closed"
+        assert data["close_reason"] == "Completed in PR #42"
+
+    def test_close_without_reason_defaults_none(self, invoke_agent):
+        _, created = invoke_agent("create", "Fix auth")
+
+        exit_code, data = invoke_agent("close", created["id"])
+        assert exit_code == 0
+        assert data["close_reason"] is None
+
     def test_close_nonexistent_bean(self, invoke_human):
         assert invoke_human("close", "bean-00000000") != 0
 

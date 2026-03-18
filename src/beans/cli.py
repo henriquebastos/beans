@@ -164,11 +164,17 @@ def update(
 
 
 @app.command()
-def close(bean_id: BeanIdArg):
+def close(
+    bean_id: BeanIdArg,
+    reason: Annotated[str | None, typer.Option(help="Reason for closing")] = None,
+):
     """Close a bean (set status=closed and closed_at)."""
+    fields = {"status": "closed", "closed_at": datetime.now(UTC).isoformat()}
+    if reason:
+        fields["close_reason"] = reason
     try:
         with get_store() as store:
-            store.bean.update(bean_id, status="closed", closed_at=datetime.now(UTC).isoformat())
+            store.bean.update(bean_id, **fields)
             bean = store.bean.get(bean_id)
     except BeanNotFoundError as e:
         error(e)
