@@ -29,6 +29,7 @@ class Config(NamedTuple):
     db: str | None = None
     json: bool = False
     dry_run: bool = False
+    fields: list[str] | None = None
 
 
 @app.callback()
@@ -37,15 +38,24 @@ def main(
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
+    fields: Annotated[str | None, typer.Option("--fields", help="Comma-separated list of fields to include")] = None,
 ):
-    ctx.obj = Config(db=db, json=json_output, dry_run=dry_run)
+    ctx.obj = Config(db=db, json=json_output, dry_run=dry_run, fields=fields.split(",") if fields else None)
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
     return dt.astimezone().strftime(fmt)
 
 
-def output(data, json=False) -> str:
+def filter_fields(data, fields, dumps=json.dumps) -> str:
+    if isinstance(data, list):
+        return dumps([{k: v for k, v in i.model_dump().items() if k in fields} for i in data], default=str)
+    return dumps({k: v for k, v in data.model_dump().items() if k in fields}, default=str)
+
+
+def output(data, json=False, fields=None) -> str:
+    if fields:
+        return filter_fields(data, fields)
     match data, json:
         case Bean(), True:
             return data.model_dump_json()
@@ -125,7 +135,7 @@ def show(ctx: typer.Context, bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(cfg, e)
 
-    typer.echo(output(bean, cfg.json))
+    typer.echo(output(bean, cfg.json, cfg.fields))
 
 
 @app.command()
@@ -230,7 +240,7 @@ def list_beans(ctx: typer.Context):
     with get_store(cfg) as store:
         beans = store.bean.list()
 
-    typer.echo(output(beans, cfg.json))
+    typer.echo(output(beans, cfg.json, cfg.fields))
 
 
 @app.command()
@@ -240,7 +250,7 @@ def ready(ctx: typer.Context):
     with get_store(cfg) as store:
         beans = store.bean.ready()
 
-    typer.echo(output(beans, cfg.json))
+    typer.echo(output(beans, cfg.json, cfg.fields))
 
 
 @app.command()
@@ -318,7 +328,7 @@ def search(ctx: typer.Context, query: str):
     with get_store(cfg) as store:
         beans = store.bean.search(query)
 
-    typer.echo(output(beans, cfg.json))
+    typer.echo(output(beans, cfg.json, cfg.fields))
 
 
 @app.command()
