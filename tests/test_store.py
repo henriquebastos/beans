@@ -289,6 +289,32 @@ class TestDepStoreCRUD:
         assert store.dep.remove(a.id, b.id) == 0
 
 
+class TestBeanStoreStats:
+    """BeanStore.stats() returns aggregate counts."""
+
+    def test_stats_empty_store(self, store):
+        result = store.bean.stats()
+        assert result == {"by_status": {}, "by_type": {}, "by_assignee": {}}
+
+    def test_stats_by_type(self, store):
+        store.bean.create(Bean(title="A"))
+        store.bean.create(Bean(title="B", type="bug"))
+        store.bean.create(Bean(title="C", type="epic"))
+        store.bean.create(Bean(title="D"))
+
+        result = store.bean.stats()
+        assert result["by_type"] == {"task": 2, "bug": 1, "epic": 1}
+
+    def test_stats_by_assignee(self, store):
+        store.bean.create(Bean(title="A", assignee="alice"))
+        store.bean.create(Bean(title="B", assignee="bob"))
+        store.bean.create(Bean(title="C", assignee="alice"))
+        store.bean.create(Bean(title="D"))
+
+        result = store.bean.stats()
+        assert result["by_assignee"] == {"alice": 2, "bob": 1, "unassigned": 1}
+
+
 class TestBeanStoreSearch:
     """BeanStore.search() finds beans by title and body."""
 

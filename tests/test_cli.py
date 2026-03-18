@@ -399,6 +399,34 @@ class TestRebuildCommand:
         assert data["title"] == "Updated"
 
 
+class TestStatsCommand:
+    """'beans stats' outputs aggregate counts."""
+
+    def test_stats_json_output(self, jcli):
+        jcli('--json create "Task A"')
+        jcli('--json create "Task B" --type bug')
+
+        exit_code, data = jcli("--json stats")
+        assert exit_code == 0
+        assert data["by_status"] == {"open": 2}
+        assert data["by_type"] == {"task": 1, "bug": 1}
+
+    def test_stats_human_output(self, cli, jcli):
+        jcli('--json create "Task A"')
+        jcli('--json create "Task B" --type bug')
+
+        exit_code, output = cli("stats")
+        assert exit_code == 0
+        assert "Status" in output
+        assert "Type" in output
+        assert "open" in output
+
+    def test_stats_empty(self, jcli):
+        exit_code, data = jcli("--json stats")
+        assert exit_code == 0
+        assert data == {"by_status": {}, "by_type": {}, "by_assignee": {}}
+
+
 class TestGraphCommand:
     """'beans graph' renders the dependency tree."""
 
