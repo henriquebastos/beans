@@ -97,22 +97,29 @@ journal at any time. Sync through git, not through custom protocols.
 ## Installation
 
 ```bash
-uv add beans
+pip install magic-beans
 ```
 
-Or with pip:
+Or with uv:
 
 ```bash
-pip install beans
+uv add magic-beans
 ```
 
 ## Quick start
 
 ```bash
+# Initialize a project
+beans init
+
 # Create some beans
 beans create "Set up database schema"
-beans create "Build API endpoints"
-beans create "Write integration tests"
+beans create "Build API endpoints" --type task
+beans create "Write integration tests" --body "Cover all CRUD operations"
+
+# Create an epic with children
+beans create "Launch v1" --type epic
+beans create "Deploy to staging" --parent bean-<epic-id>
 
 # List all beans
 beans list
@@ -121,26 +128,170 @@ beans list
 beans --json list
 ```
 
+## CLI Reference
+
+### Global options
+
+| Option | Description |
+|---|---|
+| `--json` | Output as JSON (for agents) |
+| `--dry-run` | Show what would happen without writing |
+| `--db PATH` | Use a specific SQLite database file |
+| `--fields id,title,...` | Limit output to specific fields |
+| `--label NAME` | Filter list/ready by label |
+
+### Bean CRUD
+
+```bash
+# Create
+beans create "Fix auth" --type bug --body "Detailed description" --parent bean-<id>
+
+# Show
+beans show bean-a3f2dd1c
+
+# Update
+beans update bean-a3f2dd1c --title "New title" --status in_progress --priority 0
+
+# Close (sets status=closed and closed_at)
+beans close bean-a3f2dd1c --reason "Fixed in commit abc1234"
+
+# Delete
+beans delete bean-a3f2dd1c
+```
+
+### Querying
+
+```bash
+# List all beans
+beans list
+
+# List only unblocked beans (ready to work on)
+beans ready
+
+# Search by title and body
+beans search "auth"
+
+# Aggregate counts by status, type, assignee
+beans stats
+
+# Dependency tree visualization
+beans graph
+```
+
+### Dependencies
+
+```bash
+# A blocks B (B can't start until A is closed)
+beans dep add bean-aaaa bean-bbbb
+
+# Remove a dependency
+beans dep remove bean-aaaa bean-bbbb
+
+# Cross-project dependencies
+beans dep add bean-aaaa bean-bbbb --project other-project
+```
+
+### Agent coordination
+
+```bash
+# Claim a bean (sets assignee + status=in_progress)
+beans claim bean-a3f2dd1c --actor alice
+
+# Release a claimed bean
+beans release bean-a3f2dd1c --actor alice
+
+# Release all beans claimed by an actor
+beans release --mine --actor alice
+```
+
+### Labels
+
+```bash
+# Add a label
+beans label add bean-a3f2dd1c urgent
+
+# Remove a label
+beans label remove bean-a3f2dd1c urgent
+
+# List labels on a bean
+beans label list bean-a3f2dd1c
+
+# Filter by label
+beans --label urgent list
+beans --label urgent ready
+```
+
+### Journal & sync
+
+```bash
+# Export journal to JSONL (for git-based sync)
+beans export-journal > journal.jsonl
+
+# Rebuild database from journal
+beans rebuild journal.jsonl
+```
+
+### Configuration
+
+```bash
+# Show config path and settings
+beans config
+
+# Agent integration recipes
+beans recipe --list
+beans recipe claude
+beans recipe generic
+
+# Register projects for cross-project deps
+beans project add other-project --path /path/to/.beans
+beans project list
+beans project remove other-project
+```
+
+### Introspection
+
+```bash
+# Output JSON schemas for all models
+beans schema
+
+# Field filtering (works with show, list, ready, search)
+beans --fields id,title,status list
+beans --json --fields id,title show bean-a3f2dd1c
+```
+
 ## Architecture
 
 ```
 src/beans/
 ├── models.py    # Pydantic models (pure, no I/O)
 ├── store.py     # SQLite storage (I/O boundary)
+├── api.py       # Command API (composes store calls)
+├── config.py    # Global config (~/.config/beans/)
+├── project.py   # Project discovery (find .beans/)
 └── cli.py       # Typer CLI (thin wiring layer)
 ```
 
 - **models.py** — Pure data. Bean is a Pydantic model with validation. No I/O, no side
   effects, easy to test.
-- **store.py** — The I/O boundary. BeanStore wraps a SQLite connection with
-  create/read/update/delete operations. Accepts an injected connection for testing.
-- **cli.py** — Thin wiring. Parses args, calls store methods, formats output. No
+- **store.py** — The I/O boundary. Store wraps a SQLite connection and composes
+  BeanStore, DepStore, CrossDepStore, LabelStore, and JournalStore. Accepts an injected
+  connection for testing.
+- **api.py** — Command API. Each function is one use case (create, close, claim,
+  release, stats, graph). Composes store calls.
+- **cli.py** — Thin wiring. Parses args, calls API functions, formats output. No
   business logic.
 
 ## For AI agents
 
 Beans is designed to be used by AI agents as a coordination mechanism. Add this to your
-project's `AGENTS.md`:
+project's `AGENTS.md`, or use `beans recipe` for a ready-made integration:
+
+```bash
+beans recipe claude    # Claude/Amp recipe
+beans recipe generic   # Generic agent recipe
+```
+
+Or add manually:
 
 ```markdown
 ## Task tracking
@@ -148,9 +299,11 @@ project's `AGENTS.md`:
 This project uses `beans` for task tracking. Use `beans --json` for all commands.
 
 - Check available work: `beans --json ready`
-- Claim a task: `beans claim <id>`
-- Mark done: `beans close <id>`
+- Claim a task: `beans claim <id> --actor <name>`
+- Show task details: `beans --json show <id>`
+- Mark done: `beans close <id> --reason "Implemented in <sha>"`
 - Create subtasks: `beans create "<title>" --parent <id>`
+- Add dependencies: `beans dep add <blocker-id> <blocked-id>`
 ```
 
 ## License
@@ -174,29 +327,23 @@ second.
 
 ### Releasing
 
-1. Bump the version:
+1. Bump the version in `pyproject.toml`
+2. Generate changelog:
    ```bash
-   uv version --bump patch   # or minor, major
+   uv run git-cliff --tag v<VERSION> -o CHANGELOG.md
+   ```
+3. Commit and tag:
+   ```bash
+   git add pyproject.toml CHANGELOG.md
+   git commit -m "chore: bump version to <VERSION>"
+   git tag v<VERSION>
+   git push origin main --tags
+   ```
+4. Create a GitHub Release:
+   ```bash
+   gh release create v<VERSION> --generate-notes
    ```
 
-2. Commit and push:
-   ```bash
-   git add pyproject.toml uv.lock
-   git commit -m "chore: bump version to $(uv version --short)"
-   git push
-   ```
-
-3. Create a GitHub Release:
-   ```bash
-   gh release create v$(uv version --short) --generate-notes
-   ```
-
-This triggers the release workflow which:
-- Runs the full test suite
-- Generates changelog from conventional commits
-- Updates `CHANGELOG.md` and commits it
-- Attaches build artifacts to the release
-- Publishes to PyPI
-
+The release workflow runs tests, publishes to PyPI, and updates the Homebrew formula.
 The package is published as `magic-beans` on PyPI (`pip install magic-beans`),
 but the CLI command is `beans` and the import is `import beans`.
