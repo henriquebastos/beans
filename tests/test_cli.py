@@ -98,6 +98,12 @@ class TestCommandWiring:
         assert exit_code == 0
         assert len(data) == 1
 
+    def test_search_no_matches(self, jcli):
+        jcli('--json create "Fix auth"')
+        exit_code, data = jcli("--json search deploy")
+        assert exit_code == 0
+        assert data == []
+
     def test_dep_add(self, jcli):
         _, a = jcli('--json create "Task A"')
         _, b = jcli('--json create "Task B"')

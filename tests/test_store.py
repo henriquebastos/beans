@@ -289,6 +289,29 @@ class TestDepStoreCRUD:
         assert store.dep.remove(a.id, b.id) == 0
 
 
+class TestBeanStoreSearch:
+    """BeanStore.search() finds beans by title and body."""
+
+    def test_search_case_insensitive(self, store):
+        store.bean.create(Bean(title="Fix Auth"))
+
+        assert len(store.bean.search("fix auth")) == 1
+        assert len(store.bean.search("FIX AUTH")) == 1
+
+    def test_search_empty_query_returns_all(self, store):
+        bean = store.bean.create(Bean(title="Fix auth"))
+
+        assert store.bean.search("") == [bean]
+
+    def test_search_multiple_matches(self, store):
+        store.bean.create(Bean(title="Fix auth login"))
+        store.bean.create(Bean(title="Fix auth signup"))
+        store.bean.create(Bean(title="Add tests"))
+
+        results = store.bean.search("auth")
+        assert len(results) == 2
+
+
 class TestDepStoreListAll:
     """DepStore.list_all() returns all dependencies."""
 
