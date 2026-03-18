@@ -1,4 +1,5 @@
 # Python imports
+import json
 import sqlite3
 from typing import Self
 
@@ -44,10 +45,95 @@ CREATE TABLE IF NOT EXISTS deps (
     dep_type TEXT NOT NULL DEFAULT 'blocks',
     PRIMARY KEY (from_id, to_id)
 );
+
+CREATE TABLE IF NOT EXISTS journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    bean_id TEXT NOT NULL,
+    snapshot TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TRIGGER IF NOT EXISTS journal_after_insert
+AFTER INSERT ON beans
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('create', NEW.id, json_object(
+        'id', NEW.id,
+        'title', NEW.title,
+        'type', NEW.type,
+        'status', NEW.status,
+        'priority', NEW.priority,
+        'body', NEW.body,
+        'parent_id', NEW.parent_id,
+        'assignee', NEW.assignee,
+        'created_by', NEW.created_by,
+        'ref_id', NEW.ref_id,
+        'created_at', NEW.created_at,
+        'closed_at', NEW.closed_at
+    ));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_after_update
+AFTER UPDATE ON beans
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('update', NEW.id, json_object(
+        'id', NEW.id,
+        'title', NEW.title,
+        'type', NEW.type,
+        'status', NEW.status,
+        'priority', NEW.priority,
+        'body', NEW.body,
+        'parent_id', NEW.parent_id,
+        'assignee', NEW.assignee,
+        'created_by', NEW.created_by,
+        'ref_id', NEW.ref_id,
+        'created_at', NEW.created_at,
+        'closed_at', NEW.closed_at
+    ));
+END;
+
+CREATE TRIGGER IF NOT EXISTS journal_after_delete
+AFTER DELETE ON beans
+BEGIN
+    INSERT INTO journal (action, bean_id, snapshot)
+    VALUES ('delete', OLD.id, json_object(
+        'id', OLD.id,
+        'title', OLD.title,
+        'type', OLD.type,
+        'status', OLD.status,
+        'priority', OLD.priority,
+        'body', OLD.body,
+        'parent_id', OLD.parent_id,
+        'assignee', OLD.assignee,
+        'created_by', OLD.created_by,
+        'ref_id', OLD.ref_id,
+        'created_at', OLD.created_at,
+        'closed_at', OLD.closed_at
+    ));
+END;
 """
 
 
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at"}
+
+BEAN_COLUMNS = "id, title, type, status, priority, body, parent_id, assignee, created_by, ref_id, created_at, closed_at"
+
+INSERT_BEAN = f"INSERT INTO beans ({BEAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+UPDATE_BEAN_ALL = """UPDATE beans SET title=?, type=?, status=?, priority=?, body=?,
+    parent_id=?, assignee=?, created_by=?, ref_id=?, created_at=?, closed_at=?
+    WHERE id=?"""
+
+
+def bean_values(bean: Bean) -> tuple:
+    return (
+        bean.id, bean.title, bean.type, bean.status, bean.priority,
+        bean.body, bean.parent_id, bean.assignee, bean.created_by,
+        bean.ref_id, bean.created_at.isoformat(),
+        bean.closed_at.isoformat() if bean.closed_at else None,
+    )
 
 
 class BaseStore:
@@ -65,26 +151,7 @@ class BaseStore:
 class BeanStore(BaseStore):
     def create(self, bean: Bean) -> Bean:
         with self.conn:
-            self.conn.execute(
-                """INSERT INTO beans
-                (id, title, type, status, priority, body,
-                parent_id, assignee, created_by, ref_id, created_at, closed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    bean.id,
-                    bean.title,
-                    bean.type,
-                    bean.status,
-                    bean.priority,
-                    bean.body,
-                    bean.parent_id,
-                    bean.assignee,
-                    bean.created_by,
-                    bean.ref_id,
-                    bean.created_at.isoformat(),
-                    bean.closed_at.isoformat() if bean.closed_at else None,
-                ),
-            )
+            self.conn.execute(INSERT_BEAN, bean_values(bean))
         return bean
 
     def get(self, bean_id: BeanId) -> Bean:
@@ -193,6 +260,37 @@ class DepStore(BaseStore):
         return cursor.rowcount
 
 
+class JournalStore(BaseStore):
+    def export(self):
+        cursor = self.conn.execute("SELECT action, bean_id, snapshot, created_at FROM journal ORDER BY id")
+        for action, bean_id, snapshot, created_at in cursor:
+            entry = {
+                "action": action,
+                "bean_id": bean_id,
+                "snapshot": json.loads(snapshot) if snapshot else None,
+                "created_at": created_at,
+            }
+            yield json.dumps(entry)
+
+    def replay(self, lines):
+        with self.conn:
+            for line in lines:
+                entry = json.loads(line)
+                action = entry["action"]
+                snapshot = entry["snapshot"]
+                bean_id = entry["bean_id"]
+
+                if action == "create":
+                    bean = Bean(**snapshot)
+                    self.conn.execute(INSERT_BEAN, bean_values(bean))
+                elif action == "update":
+                    bean = Bean(**snapshot)
+                    vals = bean_values(bean)
+                    self.conn.execute(UPDATE_BEAN_ALL, (*vals[1:], vals[0]))
+                elif action == "delete":
+                    self.conn.execute("DELETE FROM beans WHERE id=?", (bean_id,))
+
+
 class DryRunConnection:
     """Wraps a sqlite3.Connection to prevent commits for dry-run mode."""
 
@@ -221,6 +319,7 @@ class Store(BaseStore):
         wrapped = DryRunConnection(conn) if dry_run else conn
         self.bean = BeanStore(wrapped)
         self.dep = DepStore(wrapped)
+        self.journal = JournalStore(conn)
         self.dry_run = dry_run
 
     @classmethod
