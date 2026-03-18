@@ -55,91 +55,18 @@ CREATE TABLE IF NOT EXISTS journal (
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE TRIGGER IF NOT EXISTS journal_after_insert
-AFTER INSERT ON beans
-BEGIN
-    INSERT INTO journal (action, bean_id, snapshot)
-    VALUES ('create', NEW.id, json_object(
-        'id', NEW.id,
-        'title', NEW.title,
-        'type', NEW.type,
-        'status', NEW.status,
-        'priority', NEW.priority,
-        'body', NEW.body,
-        'parent_id', NEW.parent_id,
-        'assignee', NEW.assignee,
-        'created_by', NEW.created_by,
-        'ref_id', NEW.ref_id,
-        'created_at', NEW.created_at,
-        'closed_at', NEW.closed_at,
-        'close_reason', NEW.close_reason
-    ));
-END;
-
-CREATE TRIGGER IF NOT EXISTS journal_after_update
-AFTER UPDATE ON beans
-BEGIN
-    INSERT INTO journal (action, bean_id, snapshot)
-    VALUES ('update', NEW.id, json_object(
-        'id', NEW.id,
-        'title', NEW.title,
-        'type', NEW.type,
-        'status', NEW.status,
-        'priority', NEW.priority,
-        'body', NEW.body,
-        'parent_id', NEW.parent_id,
-        'assignee', NEW.assignee,
-        'created_by', NEW.created_by,
-        'ref_id', NEW.ref_id,
-        'created_at', NEW.created_at,
-        'closed_at', NEW.closed_at,
-        'close_reason', NEW.close_reason
-    ));
-END;
-
-CREATE TRIGGER IF NOT EXISTS journal_after_delete
-AFTER DELETE ON beans
-BEGIN
-    INSERT INTO journal (action, bean_id, snapshot)
-    VALUES ('delete', OLD.id, json_object(
-        'id', OLD.id,
-        'title', OLD.title,
-        'type', OLD.type,
-        'status', OLD.status,
-        'priority', OLD.priority,
-        'body', OLD.body,
-        'parent_id', OLD.parent_id,
-        'assignee', OLD.assignee,
-        'created_by', OLD.created_by,
-        'ref_id', OLD.ref_id,
-        'created_at', OLD.created_at,
-        'closed_at', OLD.closed_at,
-        'close_reason', OLD.close_reason
-    ));
-END;
-
-CREATE TRIGGER IF NOT EXISTS journal_after_dep_insert
-AFTER INSERT ON deps
-BEGIN
-    INSERT INTO journal (action, bean_id, snapshot)
-    VALUES ('dep_add', NEW.to_id, json_object(
-        'from_id', NEW.from_id,
-        'to_id', NEW.to_id,
-        'dep_type', NEW.dep_type
-    ));
-END;
-
-CREATE TRIGGER IF NOT EXISTS journal_after_dep_delete
-AFTER DELETE ON deps
-BEGIN
-    INSERT INTO journal (action, bean_id, snapshot)
-    VALUES ('dep_remove', OLD.to_id, json_object(
-        'from_id', OLD.from_id,
-        'to_id', OLD.to_id,
-        'dep_type', OLD.dep_type
-    ));
-END;
+DROP TRIGGER IF EXISTS journal_after_insert;
+DROP TRIGGER IF EXISTS journal_after_update;
+DROP TRIGGER IF EXISTS journal_after_delete;
+DROP TRIGGER IF EXISTS journal_after_dep_insert;
+DROP TRIGGER IF EXISTS journal_after_dep_delete;
 """
+
+INSERT_JOURNAL = "INSERT INTO journal (action, bean_id, snapshot) VALUES (?, ?, ?)"
+
+
+def journal_log(conn, action, bean_id, snapshot) -> None:
+    conn.execute(INSERT_JOURNAL, (action, bean_id, snapshot))
 
 
 UPDATABLE_FIELDS = {"title", "type", "status", "priority", "body", "parent_id", "assignee", "closed_at", "close_reason"}
@@ -166,6 +93,10 @@ def bean_values(bean: Bean) -> tuple:
     )
 
 
+def bean_snapshot(bean: Bean) -> str:
+    return bean.model_dump_json()
+
+
 class BeanStore:
     def __init__(self, conn):
         self.conn = conn
@@ -173,6 +104,7 @@ class BeanStore:
     def create(self, bean: Bean) -> Bean:
         with self.conn:
             self.conn.execute(INSERT_BEAN, bean_values(bean))
+            journal_log(self.conn, "create", bean.id, bean_snapshot(bean))
         return bean
 
     def get(self, bean_id: BeanId) -> Bean:
@@ -196,12 +128,21 @@ class BeanStore:
 
         with self.conn:
             cursor = self.conn.execute(f"UPDATE beans SET {set_clause} WHERE id = ?", values)
+            if cursor.rowcount:
+                bean = self.get(bean_id)
+                journal_log(self.conn, "update", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
     def delete(self, bean_id) -> int:
+        select = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
+        match = select.fetchone()
+        cols = columns(select) if match else None
         with self.conn:
             self.conn.execute("DELETE FROM deps WHERE from_id = ? OR to_id = ?", (bean_id, bean_id))
             cursor = self.conn.execute("DELETE FROM beans WHERE id = ?", (bean_id,))
+            if cursor.rowcount and match:
+                bean = Bean(**row(cols, match))
+                journal_log(self.conn, "delete", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
     def list(self) -> list[Bean]:
@@ -251,6 +192,7 @@ class DepStore:
                 "INSERT INTO deps (from_id, to_id, dep_type) VALUES (?, ?, ?)",
                 (dep.from_id, dep.to_id, dep.dep_type),
             )
+            journal_log(self.conn, "dep_add", dep.to_id, dep.model_dump_json())
         return dep
 
     def list(self, from_id) -> list[Dep]:
@@ -266,6 +208,9 @@ class DepStore:
                 "DELETE FROM deps WHERE from_id = ? AND to_id = ?",
                 (from_id, to_id),
             )
+            if cursor.rowcount:
+                dep = Dep(from_id=from_id, to_id=to_id)
+                journal_log(self.conn, "dep_remove", to_id, dep.model_dump_json())
         return cursor.rowcount
 
 
