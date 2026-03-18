@@ -1,5 +1,6 @@
 # Python imports
 import json
+import shlex
 
 # Pip imports
 import pytest
@@ -8,6 +9,8 @@ from typer.testing import CliRunner
 # Internal imports
 from beans.cli import app
 
+runner = CliRunner()
+
 
 @pytest.fixture()
 def dbfile(tmp_path):
@@ -15,24 +18,20 @@ def dbfile(tmp_path):
 
 
 @pytest.fixture()
-def invoke_agent(dbfile):
-    runner = CliRunner()
-
-    def invoke(*args):
-        result = runner.invoke(app, ["--db", dbfile, "--json", *args])
-        data = json.loads(result.output) if result.output.strip() else None
-        return result.exit_code, data
+def cli(dbfile):
+    def invoke(cmd):
+        result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+        return result.exit_code, result.output
 
     return invoke
 
 
 @pytest.fixture()
-def invoke_human(dbfile):
-    runner = CliRunner()
-
-    def invoke(*args):
-        result = runner.invoke(app, ["--db", dbfile, *args])
-        return result.exit_code
+def jcli(cli):
+    def invoke(cmd):
+        exit_code, output = cli(cmd)
+        data = json.loads(output) if output.strip() else None
+        return exit_code, data
 
     return invoke
 
@@ -40,208 +39,211 @@ def invoke_human(dbfile):
 class TestCommandWiring:
     """Each command routes through api.py and returns exit code 0."""
 
-    def test_create(self, invoke_agent):
-        exit_code, data = invoke_agent("create", "Fix auth")
+    def test_create(self, jcli):
+        exit_code, data = jcli('--json create "Fix auth"')
         assert exit_code == 0
         assert data["title"] == "Fix auth"
 
-    def test_show(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, data = invoke_agent("show", created["id"])
+    def test_show(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, data = jcli(f"--json show {created['id']}")
         assert exit_code == 0
         assert data["id"] == created["id"]
 
-    def test_update(self, invoke_agent):
-        _, created = invoke_agent("create", "Old title")
-        exit_code, data = invoke_agent("update", created["id"], "--title", "New title")
+    def test_update(self, jcli):
+        _, created = jcli('--json create "Old title"')
+        exit_code, data = jcli(f'--json update {created["id"]} --title "New title"')
         assert exit_code == 0
         assert data["title"] == "New title"
 
-    def test_close(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, data = invoke_agent("close", created["id"])
+    def test_close(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, data = jcli(f"--json close {created['id']}")
         assert exit_code == 0
         assert data["status"] == "closed"
 
-    def test_delete(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, _ = invoke_agent("delete", created["id"])
+    def test_delete(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = jcli(f"--json delete {created['id']}")
         assert exit_code == 0
 
-    def test_list(self, invoke_agent):
-        invoke_agent("create", "Task A")
-        exit_code, data = invoke_agent("list")
-        assert exit_code == 0
-        assert len(data) == 1
-
-    def test_ready(self, invoke_agent):
-        invoke_agent("create", "Task A")
-        exit_code, data = invoke_agent("ready")
+    def test_list(self, jcli):
+        jcli('--json create "Task A"')
+        exit_code, data = jcli("--json list")
         assert exit_code == 0
         assert len(data) == 1
 
-    def test_claim(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, data = invoke_agent("claim", created["id"], "--actor", "alice")
+    def test_ready(self, jcli):
+        jcli('--json create "Task A"')
+        exit_code, data = jcli("--json ready")
+        assert exit_code == 0
+        assert len(data) == 1
+
+    def test_claim(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, data = jcli(f"--json claim {created['id']} --actor alice")
         assert exit_code == 0
         assert data["assignee"] == "alice"
 
-    def test_release(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        invoke_agent("claim", created["id"], "--actor", "alice")
-        exit_code, data = invoke_agent("release", created["id"], "--actor", "alice")
+    def test_release(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        jcli(f"--json claim {created['id']} --actor alice")
+        exit_code, data = jcli(f"--json release {created['id']} --actor alice")
         assert exit_code == 0
         assert data["assignee"] is None
 
-    def test_search(self, invoke_agent):
-        invoke_agent("create", "Fix auth bug")
-        exit_code, data = invoke_agent("search", "auth")
+    def test_search(self, jcli):
+        jcli('--json create "Fix auth bug"')
+        exit_code, data = jcli("--json search auth")
         assert exit_code == 0
         assert len(data) == 1
 
-    def test_dep_add(self, invoke_agent):
-        _, a = invoke_agent("create", "Task A")
-        _, b = invoke_agent("create", "Task B")
-        exit_code, data = invoke_agent("dep", "add", a["id"], b["id"])
+    def test_dep_add(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        exit_code, data = jcli(f"--json dep add {a['id']} {b['id']}")
         assert exit_code == 0
         assert data["from_id"] == a["id"]
 
-    def test_dep_remove(self, invoke_agent):
-        _, a = invoke_agent("create", "Task A")
-        _, b = invoke_agent("create", "Task B")
-        invoke_agent("dep", "add", a["id"], b["id"])
-        exit_code, _ = invoke_agent("dep", "remove", a["id"], b["id"])
+    def test_dep_remove(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+        exit_code, _ = jcli(f"--json dep remove {a['id']} {b['id']}")
         assert exit_code == 0
 
 
 class TestReleaseArgParsing:
     """'beans release' handles --mine vs bean_id argument parsing."""
 
-    def test_release_mine(self, invoke_agent):
-        _, a = invoke_agent("create", "Task A")
-        invoke_agent("claim", a["id"], "--actor", "alice")
-        exit_code, data = invoke_agent("release", "--mine", "--actor", "alice")
+    def test_release_mine(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        jcli(f"--json claim {a['id']} --actor alice")
+        exit_code, data = jcli("--json release --mine --actor alice")
         assert exit_code == 0
         assert len(data) == 1
 
-    def test_release_mine_empty(self, invoke_agent):
-        exit_code, data = invoke_agent("release", "--mine", "--actor", "alice")
+    def test_release_mine_empty(self, jcli):
+        exit_code, data = jcli("--json release --mine --actor alice")
         assert exit_code == 0
         assert data == []
 
-    def test_release_both_id_and_mine_is_error(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, _ = invoke_agent("release", created["id"], "--mine", "--actor", "alice")
+    def test_release_both_id_and_mine_is_error(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = jcli(f"--json release {created['id']} --mine --actor alice")
         assert exit_code != 0
 
 
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
 
-    def test_list_outputs_beans(self, invoke_agent, invoke_human):
-        invoke_agent("create", "Task A")
-        assert invoke_human("list") == 0
+    def test_list_outputs_beans(self, cli, jcli):
+        jcli('--json create "Task A"')
+        exit_code, _ = cli("list")
+        assert exit_code == 0
 
-    def test_show_outputs_bean(self, invoke_agent, invoke_human):
-        _, data = invoke_agent("create", "Fix auth")
-        assert invoke_human("show", data["id"]) == 0
+    def test_show_outputs_bean(self, cli, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = cli(f"show {created['id']}")
+        assert exit_code == 0
 
-    def test_delete_outputs_message(self, invoke_agent, invoke_human):
-        _, data = invoke_agent("create", "Fix auth")
-        assert invoke_human("delete", data["id"]) == 0
+    def test_delete_outputs_message(self, cli, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = cli(f"delete {created['id']}")
+        assert exit_code == 0
 
-    def test_dep_add_outputs_edge(self, invoke_agent, invoke_human):
-        _, a = invoke_agent("create", "Task A")
-        _, b = invoke_agent("create", "Task B")
-        assert invoke_human("dep", "add", a["id"], b["id"]) == 0
+    def test_dep_add_outputs_edge(self, cli, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        exit_code, _ = cli(f"dep add {a['id']} {b['id']}")
+        assert exit_code == 0
 
-    def test_dep_remove_outputs_message(self, invoke_agent, invoke_human):
-        _, a = invoke_agent("create", "Task A")
-        _, b = invoke_agent("create", "Task B")
-        invoke_agent("dep", "add", a["id"], b["id"])
-        assert invoke_human("dep", "remove", a["id"], b["id"]) == 0
+    def test_dep_remove_outputs_message(self, cli, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+        exit_code, _ = cli(f"dep remove {a['id']} {b['id']}")
+        assert exit_code == 0
 
 
 class TestDryRunMode:
     """'--dry-run' shows what would happen without writing."""
 
-    def test_dry_run_create_shows_bean_but_does_not_persist(self, invoke_agent):
-        exit_code, data = invoke_agent("--dry-run", "create", "Fix auth")
+    def test_dry_run_create_shows_bean_but_does_not_persist(self, jcli):
+        exit_code, data = jcli('--json --dry-run create "Fix auth"')
         assert exit_code == 0
         assert data["title"] == "Fix auth"
 
-        _, beans = invoke_agent("list")
+        _, beans = jcli("--json list")
         assert beans == []
 
-    def test_dry_run_update_shows_change_but_does_not_persist(self, invoke_agent):
-        _, created = invoke_agent("create", "Old title")
+    def test_dry_run_update_shows_change_but_does_not_persist(self, jcli):
+        _, created = jcli('--json create "Old title"')
 
-        exit_code, data = invoke_agent("--dry-run", "update", created["id"], "--title", "New title")
+        exit_code, data = jcli(f'--json --dry-run update {created["id"]} --title "New title"')
         assert exit_code == 0
         assert data["title"] == "New title"
 
-        _, bean = invoke_agent("show", created["id"])
+        _, bean = jcli(f"--json show {created['id']}")
         assert bean["title"] == "Old title"
 
-    def test_dry_run_delete_does_not_persist(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
+    def test_dry_run_delete_does_not_persist(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
 
-        exit_code, _ = invoke_agent("--dry-run", "delete", created["id"])
+        exit_code, _ = jcli(f"--json --dry-run delete {created['id']}")
         assert exit_code == 0
 
-        _, bean = invoke_agent("show", created["id"])
+        _, bean = jcli(f"--json show {created['id']}")
         assert bean["title"] == "Fix auth"
 
-    def test_dry_run_close_does_not_persist(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
+    def test_dry_run_close_does_not_persist(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
 
-        exit_code, data = invoke_agent("--dry-run", "close", created["id"])
+        exit_code, data = jcli(f"--json --dry-run close {created['id']}")
         assert exit_code == 0
         assert data["status"] == "closed"
 
-        _, bean = invoke_agent("show", created["id"])
+        _, bean = jcli(f"--json show {created['id']}")
         assert bean["status"] == "open"
 
-    def test_dry_run_claim_does_not_persist(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
+    def test_dry_run_claim_does_not_persist(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
 
-        exit_code, data = invoke_agent("--dry-run", "claim", created["id"], "--actor", "alice")
+        exit_code, data = jcli(f"--json --dry-run claim {created['id']} --actor alice")
         assert exit_code == 0
         assert data["assignee"] == "alice"
 
-        _, bean = invoke_agent("show", created["id"])
+        _, bean = jcli(f"--json show {created['id']}")
         assert bean["assignee"] is None
 
-    def test_dry_run_rebuild_does_not_persist(self, dbfile, tmp_path):
-        runner = CliRunner()
-        runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
+    def test_dry_run_rebuild_does_not_persist(self, cli, jcli, tmp_path):
+        jcli('--json create "Fix auth"')
 
-        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        _, journal = cli("export-journal")
         journal_file = str(tmp_path / "journal.jsonl")
         with open(journal_file, "w") as f:
-            f.write(result.output)
+            f.write(journal)
 
         target_db = str(tmp_path / "target.db")
         result = runner.invoke(app, ["--db", target_db, "--dry-run", "rebuild", journal_file])
         assert result.exit_code == 0
 
         result = runner.invoke(app, ["--db", target_db, "--json", "list"])
-        data = json.loads(result.output)
-        assert data == []
+        assert json.loads(result.output) == []
 
 
 class TestSchemaCommand:
     """'beans schema' outputs JSON schemas for all models."""
 
-    def test_schema_includes_all_models(self, invoke_agent):
-        exit_code, data = invoke_agent("schema")
+    def test_schema_includes_all_models(self, jcli):
+        exit_code, data = jcli("--json schema")
         assert exit_code == 0
         assert "Bean" in data
         assert "Dep" in data
         assert "Error" in data
 
-    def test_schema_bean_has_properties(self, invoke_agent):
-        exit_code, data = invoke_agent("schema")
+    def test_schema_bean_has_properties(self, jcli):
+        exit_code, data = jcli("--json schema")
         assert exit_code == 0
         assert "properties" in data["Bean"]
         assert "id" in data["Bean"]["properties"]
@@ -251,45 +253,46 @@ class TestSchemaCommand:
 class TestJsonErrorOutput:
     """Errors in --json mode return structured JSON."""
 
-    def test_show_nonexistent_returns_json_error(self, invoke_agent):
-        exit_code, data = invoke_agent("show", "bean-00000000")
+    def test_show_nonexistent_returns_json_error(self, jcli):
+        exit_code, data = jcli("--json show bean-00000000")
         assert exit_code != 0
         assert "message" in data
 
-    def test_update_nonexistent_returns_json_error(self, invoke_agent):
-        exit_code, data = invoke_agent("update", "bean-00000000", "--title", "Nope")
+    def test_update_nonexistent_returns_json_error(self, jcli):
+        exit_code, data = jcli('--json update bean-00000000 --title "Nope"')
         assert exit_code != 0
         assert "message" in data
 
-    def test_delete_nonexistent_returns_json_error(self, invoke_agent):
-        exit_code, data = invoke_agent("delete", "bean-00000000")
+    def test_delete_nonexistent_returns_json_error(self, jcli):
+        exit_code, data = jcli("--json delete bean-00000000")
         assert exit_code != 0
         assert "message" in data
 
-    def test_close_nonexistent_returns_json_error(self, invoke_agent):
-        exit_code, data = invoke_agent("close", "bean-00000000")
+    def test_close_nonexistent_returns_json_error(self, jcli):
+        exit_code, data = jcli("--json close bean-00000000")
         assert exit_code != 0
         assert "message" in data
 
-    def test_claim_already_claimed_returns_json_error(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        invoke_agent("claim", created["id"], "--actor", "alice")
-        exit_code, data = invoke_agent("claim", created["id"], "--actor", "bob")
+    def test_claim_already_claimed_returns_json_error(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        jcli(f"--json claim {created['id']} --actor alice")
+        exit_code, data = jcli(f"--json claim {created['id']} --actor bob")
         assert exit_code != 0
         assert "message" in data
 
-    def test_release_by_wrong_actor_returns_json_error(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        invoke_agent("claim", created["id"], "--actor", "alice")
-        exit_code, data = invoke_agent("release", created["id"], "--actor", "bob")
+    def test_release_by_wrong_actor_returns_json_error(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        jcli(f"--json claim {created['id']} --actor alice")
+        exit_code, data = jcli(f"--json release {created['id']} --actor bob")
         assert exit_code != 0
         assert "message" in data
 
-    def test_release_no_args_returns_error(self, invoke_human):
-        assert invoke_human("release", "--actor", "alice") != 0
+    def test_release_no_args_returns_error(self, cli):
+        exit_code, _ = cli("release --actor alice")
+        assert exit_code != 0
 
-    def test_dep_remove_nonexistent_returns_json_error(self, invoke_agent):
-        exit_code, data = invoke_agent("dep", "remove", "bean-aaaaaaaa", "bean-bbbbbbbb")
+    def test_dep_remove_nonexistent_returns_json_error(self, jcli):
+        exit_code, data = jcli("--json dep remove bean-aaaaaaaa bean-bbbbbbbb")
         assert exit_code != 0
         assert "message" in data
 
@@ -297,59 +300,57 @@ class TestJsonErrorOutput:
 class TestInputValidation:
     """Invalid inputs are rejected with clear errors."""
 
-    def test_update_invalid_status(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, _ = invoke_agent("update", created["id"], "--status", "deleted")
+    def test_update_invalid_status(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = jcli(f"--json update {created['id']} --status deleted")
         assert exit_code != 0
 
-    def test_update_invalid_priority(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, _ = invoke_agent("update", created["id"], "--priority", "5")
+    def test_update_invalid_priority(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = jcli(f"--json update {created['id']} --priority 5")
         assert exit_code != 0
 
-    def test_create_invalid_type(self, invoke_human):
-        assert invoke_human("create", "Bad", "--type", "invalid") != 0
-
-    def test_update_invalid_type(self, invoke_agent):
-        _, created = invoke_agent("create", "Fix auth")
-        exit_code, _ = invoke_agent("update", created["id"], "--type", "invalid")
+    def test_create_invalid_type(self, cli):
+        exit_code, _ = cli('create "Bad" --type invalid')
         assert exit_code != 0
 
-    def test_show_invalid_id_format(self, invoke_human):
-        assert invoke_human("show", "not-a-bean-id") != 0
+    def test_update_invalid_type(self, jcli):
+        _, created = jcli('--json create "Fix auth"')
+        exit_code, _ = jcli(f"--json update {created['id']} --type invalid")
+        assert exit_code != 0
+
+    def test_show_invalid_id_format(self, cli):
+        exit_code, _ = cli("show not-a-bean-id")
+        assert exit_code != 0
 
 
 class TestExportJournalCommand:
     """'beans export-journal' exports journal entries as JSONL."""
 
-    def test_export_empty(self, dbfile):
-        runner = CliRunner()
-        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
-        assert result.exit_code == 0
-        assert result.output.strip() == ""
+    def test_export_empty(self, cli):
+        exit_code, output = cli("export-journal")
+        assert exit_code == 0
+        assert output.strip() == ""
 
-    def test_export_after_create(self, dbfile):
-        runner = CliRunner()
-        runner.invoke(app, ["--db", dbfile, "create", "Fix auth"])
+    def test_export_after_create(self, cli):
+        cli('create "Fix auth"')
 
-        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
-        assert result.exit_code == 0
-        lines = result.output.strip().split("\n")
+        exit_code, output = cli("export-journal")
+        assert exit_code == 0
+        lines = output.strip().split("\n")
         assert len(lines) == 1
         entry = json.loads(lines[0])
         assert entry["action"] == "create"
 
-    def test_export_crud_cycle(self, dbfile):
-        runner = CliRunner()
-        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
-        bean = json.loads(result.output)
+    def test_export_crud_cycle(self, cli, jcli):
+        _, bean = jcli('--json create "Fix auth"')
 
-        runner.invoke(app, ["--db", dbfile, "update", bean["id"], "--title", "Updated"])
-        runner.invoke(app, ["--db", dbfile, "delete", bean["id"]])
+        cli(f'update {bean["id"]} --title "Updated"')
+        cli(f"delete {bean['id']}")
 
-        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
-        assert result.exit_code == 0
-        lines = result.output.strip().split("\n")
+        exit_code, output = cli("export-journal")
+        assert exit_code == 0
+        lines = output.strip().split("\n")
         assert len(lines) == 3
         actions = [json.loads(line)["action"] for line in lines]
         assert actions == ["create", "update", "delete"]
@@ -358,15 +359,13 @@ class TestExportJournalCommand:
 class TestRebuildCommand:
     """'beans rebuild' rebuilds a database from a JSONL file."""
 
-    def test_rebuild_from_journal(self, dbfile, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
-        bean = json.loads(result.output)
+    def test_rebuild_from_journal(self, cli, jcli, tmp_path):
+        _, bean = jcli('--json create "Fix auth"')
 
         journal_file = str(tmp_path / "journal.jsonl")
-        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        _, journal = cli("export-journal")
         with open(journal_file, "w") as f:
-            f.write(result.output)
+            f.write(journal)
 
         target_db = str(tmp_path / "rebuilt.db")
         result = runner.invoke(app, ["--db", target_db, "rebuild", journal_file])
@@ -378,21 +377,18 @@ class TestRebuildCommand:
         assert data[0]["id"] == bean["id"]
         assert data[0]["title"] == "Fix auth"
 
-    def test_rebuild_with_updates(self, dbfile, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(app, ["--db", dbfile, "--json", "create", "Fix auth"])
-        bean = json.loads(result.output)
-        runner.invoke(app, ["--db", dbfile, "update", bean["id"], "--title", "Updated"])
+    def test_rebuild_with_updates(self, cli, jcli, tmp_path):
+        _, bean = jcli('--json create "Fix auth"')
+        cli(f'update {bean["id"]} --title "Updated"')
 
         journal_file = str(tmp_path / "journal.jsonl")
-        result = runner.invoke(app, ["--db", dbfile, "export-journal"])
+        _, journal = cli("export-journal")
         with open(journal_file, "w") as f:
-            f.write(result.output)
+            f.write(journal)
 
         target_db = str(tmp_path / "rebuilt.db")
         result = runner.invoke(app, ["--db", target_db, "rebuild", journal_file])
         assert result.exit_code == 0
 
         result = runner.invoke(app, ["--db", target_db, "--json", "show", bean["id"]])
-        data = json.loads(result.output)
-        assert data["title"] == "Updated"
+        assert json.loads(result.output)["title"] == "Updated"
