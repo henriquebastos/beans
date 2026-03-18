@@ -8,6 +8,7 @@ from pydantic import ValidationError
 import typer
 
 # Internal imports
+from beans.api import claim_bean, release_bean, release_mine
 from beans.models import Bean, BeanId, BeanNotFoundError, BeanUpdate, Dep, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
@@ -172,7 +173,7 @@ def claim(
     """Claim a bean (set assignee and status=in_progress)."""
     try:
         with get_store() as store:
-            bean = store.bean.claim(bean_id, actor)
+            bean = claim_bean(store.bean, bean_id, actor)
     except (BeanNotFoundError, ValueError) as e:
         error(e)
 
@@ -190,12 +191,12 @@ def release(
         error(ValueError("Provide a bean id or --mine, not both"))
     elif mine:
         with get_store() as store:
-            beans = store.bean.release_mine(actor)
+            beans = release_mine(store.bean, actor)
         typer.echo(output(beans, state["json"]))
     elif bean_id:
         try:
             with get_store() as store:
-                bean = store.bean.release(bean_id, actor)
+                bean = release_bean(store.bean, bean_id, actor)
         except (BeanNotFoundError, ValueError) as e:
             error(e)
         typer.echo(output(bean, state["json"]))
