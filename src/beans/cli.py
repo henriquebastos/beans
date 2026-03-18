@@ -142,9 +142,10 @@ def update(
     status: Annotated[str | None, typer.Option(help="New status")] = None,
     priority: Annotated[int | None, typer.Option(help="New priority")] = None,
     body: Annotated[str | None, typer.Option(help="New body")] = None,
+    parent: Annotated[str | None, typer.Option(help="New parent bean id", parser=BeanId)] = None,
 ):
     """Update fields on a bean."""
-    all_fields = {"title": title, "status": status, "priority": priority, "body": body}
+    all_fields = {"title": title, "status": status, "priority": priority, "body": body, "parent_id": parent}
     fields = {k: v for k, v in all_fields.items() if v is not None}
 
     try:
