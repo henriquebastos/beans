@@ -1,5 +1,6 @@
 # Python imports
 from datetime import datetime
+import importlib.resources
 import json
 from typing import Annotated, NamedTuple
 
@@ -255,6 +256,41 @@ def config():
         typer.echo(json.dumps(cfg, indent=2))
     else:
         typer.echo("No configuration set.")
+
+
+RECIPES_DIR = importlib.resources.files("beans.templates.recipes")
+
+
+def list_recipes(recipes_dir=RECIPES_DIR) -> list[str]:
+    return sorted(r.stem for r in recipes_dir.iterdir() if r.suffix == ".md")
+
+
+def load_recipe(client, recipes_dir=RECIPES_DIR) -> str:
+    recipe_file = recipes_dir / f"{client}.md"
+    if not recipe_file.is_file():
+        available = ", ".join(list_recipes(recipes_dir))
+        raise FileNotFoundError(f"Unknown recipe: {client}. Available: {available}")
+    return recipe_file.read_text()
+
+
+@app.command()
+def recipe(
+    client: Annotated[str | None, typer.Argument(help="Client name (claude, gpt, generic)")] = None,
+    list_all: Annotated[bool, typer.Option("--list", help="List available recipes")] = False,
+):
+    """Output agent integration recipe for a client."""
+    if list_all:
+        for name in list_recipes():
+            typer.echo(name)
+        return
+    if not client:
+        typer.echo("Provide a client name or use --list", err=True)
+        raise typer.Exit(code=1)
+    try:
+        typer.echo(load_recipe(client))
+    except FileNotFoundError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
 
 
 @app.command("export-journal")
