@@ -16,11 +16,17 @@ Follow these closely — they are intentional and reflect the project's values.
 src/beans/
 ├── models.py    # Pydantic models, pure functions, no I/O
 ├── store.py     # SQLite I/O boundary, BeanStore class
+├── api.py       # Command API, composes store calls, returns models
+├── config.py    # Global config (~/.config/beans/config.json)
+├── project.py   # Project discovery (find .beans/, init)
 └── cli.py       # Typer CLI, thin wiring layer (parse → call → format)
 ```
 
 - **models.py** — Pure data and pure functions. No imports from store or cli.
 - **store.py** — The only place that touches the database. Accepts injected connections.
+- **api.py** — Command API. Each function is one use case, composes store calls.
+- **config.py** — Global user config. Reads from XDG config directory.
+- **project.py** — Project discovery. Finds `.beans/` dir, handles `beans init`.
 - **cli.py** — Thin wiring. No business logic. Display formatting lives here.
 
 ## Code Style
@@ -243,6 +249,17 @@ uv run pytest
 uv run ruff check src/ tests/
 ```
 
+### Review before committing
+
+After tests and lint pass, review the pending changes before committing:
+
+```
+inspect-5p
+```
+
+This runs a 5-pass parallel review of uncommitted changes, covering security, correctness,
+design, testing, and conventions. Fix any issues found, re-run tests, then commit.
+
 ## Releasing
 
 1. Bump the version in `pyproject.toml`
@@ -344,13 +361,13 @@ The agent drives the full loop without pausing:
 
 ```
 beans ready → pick highest priority → beans claim →
-read bean → implement (TDD) → lint → test → commit →
+read bean → implement (TDD) → lint → test → inspect-5p → commit →
 beans close → next bean
 ```
 
 - Auto-pick the highest priority unblocked bean from `beans ready`
 - Auto-claim before starting
-- Auto-commit after each green (feat) and after each refactor
+- Run `inspect-5p` after tests pass, fix any issues, then auto-commit
 - Auto-close the bean after commit
 - If new work is discovered, create a bean for it and continue the current task
 - Stop after completing all ready beans or when the user interrupts

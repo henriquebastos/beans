@@ -9,6 +9,7 @@ import typer
 
 # Internal imports
 from beans.api import claim_bean, close_bean, create_bean, release_bean, release_mine, update_bean
+from beans.config import config_path, load_config
 from beans.models import Bean, BeanId, BeanNotFoundError, Dep, Error
 from beans.project import DB_NAME, find_beans_dir, init_project
 from beans.store import Store
@@ -96,8 +97,11 @@ def create(
     kwargs = {"body": body, "parent_id": parent}
     if type:
         kwargs["type"] = type
-    with get_store(cfg) as store:
-        bean = create_bean(store.bean, title, **kwargs)
+    try:
+        with get_store(cfg) as store:
+            bean = create_bean(store.bean, title, **kwargs)
+    except ValidationError as e:
+        error(cfg, e)
 
     typer.echo(output(bean, cfg.json))
 
@@ -239,6 +243,18 @@ def schema():
         "Error": Error.model_json_schema(),
     }
     typer.echo(json.dumps(schemas))
+
+
+@app.command()
+def config():
+    """Show config path and current configuration."""
+    path = config_path()
+    cfg = load_config(path)
+    typer.echo(f"Config: {path}")
+    if cfg:
+        typer.echo(json.dumps(cfg, indent=2))
+    else:
+        typer.echo("No configuration set.")
 
 
 @app.command("export-journal")
