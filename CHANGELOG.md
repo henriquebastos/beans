@@ -1,3 +1,83 @@
+## [0.5.0] - 2026-03-19
+
+### 🚀 Features
+
+- Phase 5 — Journal & Sync (#1)
+- Phase 6 — Project Setup & Discovery (#2)
+- Add --body flag to create command
+- Add --reason flag to close command
+- Add --parent flag to update command #closes bean-9c659aae
+- Journal deps via triggers and restore on replay #closes bean-64955c3c
+- Ready() returns beans ordered by priority #closes bean-efaa0197
+- Ready() excludes closed beans #closes bean-77067a3f
+- Validate Bean.type with Literal['task', 'bug', 'epic'] #closes bean-72f53d4c
+- Add --type flag to create and update commands #closes bean-be7152e6
+- Add global config, --type flag, and inspect-5p workflow #closes bean-d8d43fb4
+- Agent integration recipes command #closes bean-59b77912
+- Cross-project dependency tracking #closes bean-7c1acc31
+- Beans search — full-text search across title and body #closes bean-a0dfb9e5
+- Beans stats — aggregate counts by status, type, assignee #closes bean-fcda9235
+- Beans graph — dependency tree visualization #closes bean-07d2eb8c
+- --fields flag for filtering output columns #closes bean-b01406ae
+- Labels — add, remove, filter by label in list/ready #closes bean-da4501e1
+- Add schema versioning with PRAGMA user_version #closes bean-9ec929b9
+- Expand api.py with missing operations and route cli.py through API layer
+- Add DepNotFoundError for dependency operations #closes bean-02fe09c7
+- Add list_deps wrapper in api.py #closes bean-7077b58c
+
+### 🐛 Bug Fixes
+
+- Ready() no longer propagates blocking through closed intermediate beans #closes bean-cbcdaf36
+- Cascade-delete deps when deleting a bean #closes bean-b64b825c
+- Dry-run rebuild no longer commits data through raw conn bypass #closes bean-d417f143
+- Reject claiming a closed bean #closes bean-a3b2a258
+- Scope --fields to --json mode only #closes bean-33c69b4a
+
+### 🚜 Refactor
+
+- Move find_beans_dir and project constants to project.py #closes bean-cab287e6
+- Remove BaseStore inheritance, substores own their conn #closes bean-205d6e32
+- Replace DryRunConnection proxy with autocommit transaction control #closes bean-b41a4538
+- Replace fields_validate with BeanUpdate model #closes bean-02ba9ebd
+- Extract claim/release to api.py, demote BeanStore to pure CRUD #closes bean-0472e890
+- Replace journal triggers with app-level journaling #closes bean-4095cfba
+- Replace module-level state dict with typer.Context #closes bean-ec781db2
+- Make CLI commands thin wrappers over api functions #closes bean-f58060fb
+- Remove cross-project deps, add project type
+- Remove dead project-registry code from config.py #closes bean-ef3a672a
+- Unify API functions to take Store instead of BeanStore/DepStore
+- Simplify test_store.py and test_cli.py to layer-specific concerns
+- Replace invoke_agent/invoke_human with cli/jcli fixtures in test_cli.py #closes bean-9ae804f6
+- Move CliRunner inside cli fixture, remove module-level runner
+- Use cli/jcli fixtures for rebuild tests instead of raw CliRunner
+- Migrate dep tests to test_store.py, remove test_deps.py #closes bean-c1386db5
+- Migrate recipe tests to test_cli.py, remove test_recipe.py #closes bean-e7849876
+- Migrate graph tests to test_store.py and test_cli.py, remove test_graph.py #closes bean-598d1b87
+- Migrate search tests to test_store.py and test_cli.py, remove test_search.py #closes bean-38353238
+- Migrate stats tests to test_store.py and test_cli.py, remove test_stats.py #closes bean-e0f62d8f
+- Move config CLI tests to test_cli.py, modernize test_config.py #closes bean-7771c208
+- Rename project.py to workspace.py, modernize test_init.py fixtures #closes bean-e117807b
+- Add Store delegation methods, simplify api.py calls #closes bean-2867fd1b
+- Extract pure query functions and result mappers in store.py #closes bean-9e1db647
+
+### 📚 Documentation
+
+- Update CHANGELOG.md
+- Add autonomous and collaborative agent workflow modes
+- Comprehensive README with CLI reference and examples #closes bean-7feceebd
+- Update README to reflect simplification #closes bean-b3679991
+
+### 🧪 Testing
+
+- Add fan-in dependency test for ready() #closes bean-a96c2d30
+- Add CLI test for --body update #closes bean-f653e6e9
+- Document BeanId accepts prefixes for matching #closes bean-26570e27
+
+### ⚙️ Miscellaneous Tasks
+
+- Document task tracking workflow with beans
+- Delete dead graph.py superseded by SQL CTE #closes bean-1f175095
+- Export beans journal for git-based sync
 ## [0.4.1] - 2026-03-15
 
 ### 📚 Documentation
