@@ -78,6 +78,9 @@
 - Document task tracking workflow with beans
 - Delete dead graph.py superseded by SQL CTE #closes bean-1f175095
 - Export beans journal for git-based sync
+- Export beans journal for git-based sync
+- Export beans journal for git-based sync
+- Bump version to 0.5.0 #closes bean-2999fd08
 ## [0.4.1] - 2026-03-15
 
 ### 📚 Documentation
