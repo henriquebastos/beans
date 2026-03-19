@@ -75,6 +75,20 @@ class TestInitCommand:
 
         assert agents_file.read_text() == "custom content"
 
+    def test_init_uses_env_override(self, tmp_path, monkeypatch):
+        custom = tmp_path / "custom-beans"
+        monkeypatch.setenv("MAGIC_BEANS_DIR", str(custom))
+        monkeypatch.chdir(tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["init"])
+
+        assert result.exit_code == 0
+        assert custom.is_dir()
+        assert (custom / "beans.db").exists()
+        assert (custom / "AGENTS.md").exists()
+        assert not (tmp_path / ".beans").exists()
+
 
 class TestFindBeansDir:
     """find_beans_dir() walks up from cwd to find .beans/."""
@@ -95,6 +109,31 @@ class TestFindBeansDir:
         monkeypatch.chdir(empty)
         with pytest.raises(FileNotFoundError, match=r"\.beans"):
             find_beans_dir(empty)
+
+    def test_env_override_returns_specified_dir(self, tmp_path, monkeypatch):
+        beans = tmp_path / "custom-beans"
+        beans.mkdir()
+        monkeypatch.setenv("MAGIC_BEANS_DIR", str(beans))
+        assert find_beans_dir() == beans
+
+    def test_env_override_raises_when_dir_missing(self, monkeypatch):
+        monkeypatch.setenv("MAGIC_BEANS_DIR", "/no/such/path")
+        with pytest.raises(FileNotFoundError, match="MAGIC_BEANS_DIR"):
+            find_beans_dir()
+
+    def test_env_override_takes_precedence(self, tmp_path, monkeypatch):
+        # Create .beans/ in cwd
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / ".beans").mkdir()
+        monkeypatch.chdir(project)
+
+        # Point env var elsewhere
+        other = tmp_path / "other-beans"
+        other.mkdir()
+        monkeypatch.setenv("MAGIC_BEANS_DIR", str(other))
+
+        assert find_beans_dir() == other
 
 
 class TestProjectDiscovery:
