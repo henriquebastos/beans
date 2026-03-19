@@ -9,7 +9,7 @@ BEANS_DIR = ".beans"
 DB_NAME = "beans.db"
 AGENTS_MD = "AGENTS.md"
 GITIGNORE = ".gitignore"
-GITIGNORE_CONTENT = "*\n!journal.jsonl\n"
+GITIGNORE_CONTENT = "*\n!.gitignore\n!journal.jsonl\n"
 
 
 def find_beans_dir(start=None, dirname=BEANS_DIR) -> Path:

@@ -64,7 +64,7 @@ class TestInitCommand:
 
         gitignore = project_dir / ".beans" / ".gitignore"
         assert gitignore.exists()
-        assert gitignore.read_text() == "*\n!journal.jsonl\n"
+        assert gitignore.read_text() == "*\n!.gitignore\n!journal.jsonl\n"
 
     def test_init_idempotent(self, project_dir, cli):
         cli("init")
