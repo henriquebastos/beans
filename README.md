@@ -138,6 +138,7 @@ beans --json list
 | `--dry-run` | Show what would happen without writing |
 | `--db PATH` | Use a specific SQLite database file |
 | `--fields id,title,...` | Limit output to specific fields |
+| `MAGIC_BEANS_DIR` | Environment variable: override `.beans/` directory discovery |
 
 ### Bean CRUD
 
