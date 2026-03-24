@@ -98,6 +98,20 @@ class TestCommandWiring:
         assert exit_code == 0
         assert len(data) == 1
 
+    def test_create_with_priority(self, jcli):
+        exit_code, data = jcli('--json create "Urgent" --priority 0')
+        assert exit_code == 0
+        assert data["priority"] == 0
+
+    def test_create_default_priority(self, jcli):
+        exit_code, data = jcli('--json create "Normal"')
+        assert exit_code == 0
+        assert data["priority"] == 2
+
+    def test_create_invalid_priority(self, cli):
+        exit_code, _ = cli('create "Bad" --priority 5')
+        assert exit_code != 0
+
     def test_search_no_matches(self, jcli):
         jcli('--json create "Fix auth"')
         exit_code, data = jcli("--json search deploy")
