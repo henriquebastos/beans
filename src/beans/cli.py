@@ -28,7 +28,7 @@ from beans.api import (
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep, DepNotFoundError, Error
+from beans.models import Bean, BeanId, BeanNotFoundError, CyclicDepError, Dep, DepNotFoundError, Error
 from beans.store import Store
 from beans.workspace import DB_NAME, find_beans_dir, init_project
 
@@ -449,8 +449,11 @@ def dep_add(
 ):
     """Add a dependency between two beans."""
     cfg = ctx.obj
-    with get_store(cfg) as store:
-        dep = add_dep(store, from_id, to_id, dep_type)
+    try:
+        with get_store(cfg) as store:
+            dep = add_dep(store, from_id, to_id, dep_type)
+    except CyclicDepError as e:
+        error(cfg, e)
     typer.echo(output(dep, cfg.json))
 
 
