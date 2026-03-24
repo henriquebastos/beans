@@ -6,9 +6,12 @@ from beans.models import Bean, BeanNotFoundError, BeanUpdate, Dep, DepNotFoundEr
 from beans.store import Store
 
 
-def create_bean(store: Store, title, **fields) -> Bean:
+def create_bean(store: Store, title, deps=None, **fields) -> Bean:
     bean = Bean(title=title, **fields)
     store.create(bean)
+    if deps:
+        for dep_id in deps:
+            add_dep(store, dep_id, bean.id)
     return bean
 
 
