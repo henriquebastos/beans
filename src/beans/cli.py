@@ -118,12 +118,15 @@ def create(
     type: Annotated[str | None, typer.Option(help="Bean type (task, bug, epic, project)")] = None,
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
+    priority: Annotated[int | None, typer.Option(help="Priority (0=highest, 4=lowest)")] = None,
 ):
     """Create a new bean."""
     cfg = ctx.obj
     kwargs = {"body": body, "parent_id": parent}
     if type:
         kwargs["type"] = type
+    if priority is not None:
+        kwargs["priority"] = priority
     try:
         with get_store(cfg) as store:
             bean = create_bean(store, title, **kwargs)

@@ -48,6 +48,10 @@ class TestCreateBean:
         assert bean.priority == 0
         assert bean.body == "Details"
 
+    def test_create_with_priority(self, store):
+        bean = create_bean(store, "Urgent task", priority=0)
+        assert bean.priority == 0
+
     def test_create_persists(self, store):
         bean = create_bean(store, "Fix auth")
         assert show_bean(store, bean.id) == bean
