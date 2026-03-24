@@ -182,6 +182,46 @@ class TestReopenViaCli:
         assert data["closed_at"] is None
 
 
+class TestListFilters:
+    """'beans list' supports --type and --status filters."""
+
+    def test_list_filter_by_type(self, jcli):
+        jcli('--json create "Task" --type task')
+        jcli('--json create "Epic" --type epic')
+        exit_code, data = jcli("--json list --type epic")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["type"] == "epic"
+
+    def test_list_filter_by_status(self, jcli):
+        _, bean = jcli('--json create "Task A"')
+        jcli('--json create "Task B"')
+        jcli(f"--json close {bean['id']}")
+        exit_code, data = jcli("--json list --status open")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["status"] == "open"
+
+    def test_list_filter_comma_separated(self, jcli):
+        jcli('--json create "Task" --type task')
+        jcli('--json create "Epic" --type epic')
+        jcli('--json create "Bug" --type bug')
+        exit_code, data = jcli("--json list --type task,epic")
+        assert exit_code == 0
+        assert len(data) == 2
+
+    def test_list_filter_type_and_status(self, jcli):
+        jcli('--json create "Task Open" --type task')
+        jcli('--json create "Epic Open" --type epic')
+        _, closed = jcli('--json create "Task Closed" --type task')
+        jcli(f"--json close {closed['id']}")
+        exit_code, data = jcli("--json list --type task --status open")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["type"] == "task"
+        assert data[0]["status"] == "open"
+
+
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
 

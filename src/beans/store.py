@@ -194,8 +194,21 @@ class BeanStore:
                 journal_log(self.conn, "delete", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
-    def list(self) -> list[Bean]:
-        return beans(self.conn.execute("SELECT * FROM beans"))
+    def list(self, types=None, statuses=None) -> list[Bean]:
+        sql = "SELECT * FROM beans"
+        params = []
+        clauses = []
+        if types:
+            placeholders = ",".join("?" for _ in types)
+            clauses.append(f"type IN ({placeholders})")
+            params.extend(types)
+        if statuses:
+            placeholders = ",".join("?" for _ in statuses)
+            clauses.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        return beans(self.conn.execute(sql, params))
 
     def search(self, query) -> list[Bean]:
         pattern = f"%{query}%"
@@ -351,8 +364,8 @@ class Store:
     def delete(self, bean_id) -> int:
         return self.bean.delete(bean_id)
 
-    def list(self) -> list[Bean]:
-        return self.bean.list()
+    def list(self, types=None, statuses=None) -> list[Bean]:
+        return self.bean.list(types=types, statuses=statuses)
 
     def list_by_assignee(self, actor) -> list[Bean]:
         return self.bean.list_by_assignee(actor)

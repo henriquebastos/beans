@@ -223,6 +223,41 @@ class TestBeanStoreReady:
         assert parent in store.bean.ready()
 
 
+class TestBeanStoreListFilters:
+    """BeanStore.list() supports type and status filtering."""
+
+    def test_filter_by_type(self, store):
+        store.bean.create(Bean(title="Task", type="task"))
+        epic = store.bean.create(Bean(title="Epic", type="epic"))
+        result = store.bean.list(types=["epic"])
+        assert result == [epic]
+
+    def test_filter_by_multiple_types(self, store):
+        task = store.bean.create(Bean(title="Task", type="task"))
+        epic = store.bean.create(Bean(title="Epic", type="epic"))
+        store.bean.create(Bean(title="Bug", type="bug"))
+        result = store.bean.list(types=["task", "epic"])
+        assert set(b.id for b in result) == {task.id, epic.id}
+
+    def test_filter_by_status(self, store):
+        open_bean = store.bean.create(Bean(title="Open"))
+        store.bean.create(Bean(title="Closed", status="closed"))
+        result = store.bean.list(statuses=["open"])
+        assert result == [open_bean]
+
+    def test_filter_by_type_and_status(self, store):
+        task_open = store.bean.create(Bean(title="Task Open", type="task"))
+        store.bean.create(Bean(title="Epic Open", type="epic"))
+        store.bean.create(Bean(title="Task Closed", type="task", status="closed"))
+        result = store.bean.list(types=["task"], statuses=["open"])
+        assert result == [task_open]
+
+    def test_no_filters_returns_all(self, store):
+        a = store.bean.create(Bean(title="A"))
+        b = store.bean.create(Bean(title="B"))
+        assert store.bean.list() == [a, b]
+
+
 class TestBeanStoreValidation:
     """BeanStore validates inputs."""
 

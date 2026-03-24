@@ -264,11 +264,17 @@ def release(
 
 
 @app.command("list")
-def list_cmd(ctx: typer.Context):
+def list_cmd(
+    ctx: typer.Context,
+    type: Annotated[str | None, typer.Option("--type", help="Filter by type (comma-separated, e.g. epic,task)")] = None,
+    status: Annotated[str | None, typer.Option("--status", help="Filter by status (comma-separated, e.g. open,in_progress)")] = None,
+):
     """List all beans."""
     cfg = ctx.obj
+    types = type.split(",") if type else None
+    statuses = status.split(",") if status else None
     with get_store(cfg) as store:
-        beans = list_beans(store)
+        beans = list_beans(store, types=types, statuses=statuses)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
