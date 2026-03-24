@@ -280,11 +280,17 @@ def list_cmd(
 
 
 @app.command()
-def ready(ctx: typer.Context):
+def ready(
+    ctx: typer.Context,
+    assignee: Annotated[str | None, typer.Option(help="Filter by assignee name")] = None,
+    unassigned: Annotated[bool, typer.Option("--unassigned", help="Show only unclaimed beans")] = False,
+):
     """List only unblocked beans."""
     cfg = ctx.obj
+    if assignee and unassigned:
+        error(cfg, ValueError("--assignee and --unassigned are mutually exclusive"))
     with get_store(cfg) as store:
-        beans = ready_beans(store)
+        beans = ready_beans(store, assignee=assignee, unassigned=unassigned)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 

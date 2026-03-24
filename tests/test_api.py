@@ -339,6 +339,26 @@ class TestReadyBeans:
         assert parent not in ready_beans(store)
 
 
+class TestReadyBeansFilters:
+    """ready_beans() supports assignee filtering."""
+
+    def test_ready_filter_by_assignee(self, store):
+        a = create_bean(store, "Task A")
+        create_bean(store, "Task B")
+        claim_bean(store, a.id, "alice")
+        result = ready_beans(store, assignee="alice")
+        assert len(result) == 1
+        assert result[0].assignee == "alice"
+
+    def test_ready_filter_unassigned(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        claim_bean(store, a.id, "alice")
+        result = ready_beans(store, unassigned=True)
+        assert len(result) == 1
+        assert result[0].id == b.id
+
+
 class TestSearchBeans:
     """search_beans() finds beans by title and body."""
 
