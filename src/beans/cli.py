@@ -268,13 +268,14 @@ def list_cmd(
     ctx: typer.Context,
     type: Annotated[str | None, typer.Option("--type", help="Filter by type (comma-separated, e.g. epic,task)")] = None,
     status: Annotated[str | None, typer.Option("--status", help="Filter by status (comma-separated, e.g. open,in_progress)")] = None,
+    parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
 ):
     """List all beans."""
     cfg = ctx.obj
     types = type.split(",") if type else None
     statuses = status.split(",") if status else None
     with get_store(cfg) as store:
-        beans = list_beans(store, types=types, statuses=statuses)
+        beans = list_beans(store, types=types, statuses=statuses, parent_id=parent)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -284,13 +285,14 @@ def ready(
     ctx: typer.Context,
     assignee: Annotated[str | None, typer.Option(help="Filter by assignee name")] = None,
     unassigned: Annotated[bool, typer.Option("--unassigned", help="Show only unclaimed beans")] = False,
+    parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
 ):
     """List only unblocked beans."""
     cfg = ctx.obj
     if assignee and unassigned:
         error(cfg, ValueError("--assignee and --unassigned are mutually exclusive"))
     with get_store(cfg) as store:
-        beans = ready_beans(store, assignee=assignee, unassigned=unassigned)
+        beans = ready_beans(store, assignee=assignee, unassigned=unassigned, parent_id=parent)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 

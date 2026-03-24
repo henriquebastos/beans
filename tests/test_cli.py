@@ -717,3 +717,25 @@ class TestRecipeCommand:
         assert "claude" in lines
         assert "gpt" in lines
         assert "generic" in lines
+
+
+class TestParentFilter:
+    """'beans list' and 'beans ready' support --parent filter."""
+
+    def test_list_parent_filter(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        exit_code, data = jcli(f"--json list --parent {parent['id']}")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]
+
+    def test_ready_parent_filter(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        exit_code, data = jcli(f"--json ready --parent {parent['id']}")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]

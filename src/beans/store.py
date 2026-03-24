@@ -194,7 +194,7 @@ class BeanStore:
                 journal_log(self.conn, "delete", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
-    def list(self, types=None, statuses=None) -> list[Bean]:
+    def list(self, types=None, statuses=None, parent_id=None) -> list[Bean]:
         sql = "SELECT * FROM beans"
         params = []
         clauses = []
@@ -206,6 +206,9 @@ class BeanStore:
             placeholders = ",".join("?" for _ in statuses)
             clauses.append(f"status IN ({placeholders})")
             params.extend(statuses)
+        if parent_id:
+            clauses.append("parent_id = ?")
+            params.append(parent_id)
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         return beans(self.conn.execute(sql, params))
@@ -231,7 +234,7 @@ class BeanStore:
         result["by_assignee"] = dict(cursor.fetchall())
         return result
 
-    def ready(self, assignee=None, unassigned=False) -> list[Bean]:
+    def ready(self, assignee=None, unassigned=False, parent_id=None) -> list[Bean]:
         sql = """
             WITH RECURSIVE
             blocked_by_deps(id) AS (
@@ -262,6 +265,9 @@ class BeanStore:
             params.append(assignee)
         elif unassigned:
             sql += "  AND assignee IS NULL\n"
+        if parent_id:
+            sql += "  AND parent_id = ?\n"
+            params.append(parent_id)
         sql += "  ORDER BY priority"
         return beans(self.conn.execute(sql, params))
 
@@ -371,14 +377,14 @@ class Store:
     def delete(self, bean_id) -> int:
         return self.bean.delete(bean_id)
 
-    def list(self, types=None, statuses=None) -> list[Bean]:
-        return self.bean.list(types=types, statuses=statuses)
+    def list(self, types=None, statuses=None, parent_id=None) -> list[Bean]:
+        return self.bean.list(types=types, statuses=statuses, parent_id=parent_id)
 
     def list_by_assignee(self, actor) -> list[Bean]:
         return self.bean.list_by_assignee(actor)
 
-    def ready(self, assignee=None, unassigned=False) -> list[Bean]:
-        return self.bean.ready(assignee=assignee, unassigned=unassigned)
+    def ready(self, assignee=None, unassigned=False, parent_id=None) -> list[Bean]:
+        return self.bean.ready(assignee=assignee, unassigned=unassigned, parent_id=parent_id)
 
     def search(self, query) -> list[Bean]:
         return self.bean.search(query)
