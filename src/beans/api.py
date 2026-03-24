@@ -2,7 +2,7 @@
 from datetime import UTC, datetime
 
 # Internal imports
-from beans.models import Bean, BeanNotFoundError, BeanUpdate, CyclicDepError, Dep, DepNotFoundError
+from beans.models import Bean, BeanNotFoundError, BeanUpdate, CyclicDepError, Dep, DepNotFoundError, OpenChildrenError
 from beans.store import Store
 
 
@@ -27,7 +27,16 @@ def update_bean(store: Store, bean_id, **fields) -> Bean:
     return store.get(bean_id)
 
 
-def close_bean(store: Store, bean_id, reason=None) -> Bean:
+def close_bean(store: Store, bean_id, reason=None, force=False) -> Bean:
+    if not force:
+        # Check for open children
+        all_beans = store.list()
+        open_children = [b for b in all_beans if b.parent_id == bean_id and b.status != "closed"]
+        if open_children:
+            count = len(open_children)
+            raise OpenChildrenError(
+                f"Cannot close {bean_id}: {count} open {'child' if count == 1 else 'children'} remain"
+            )
     fields = {"status": "closed", "closed_at": datetime.now(UTC).isoformat()}
     if reason:
         fields["close_reason"] = reason
