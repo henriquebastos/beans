@@ -790,3 +790,74 @@ class TestParentFilter:
         assert exit_code == 0
         assert len(data) == 1
         assert data[0]["parent_id"] == parent["id"]
+
+
+class TestMagicBeansParentId:
+    """MAGIC_BEANS_PARENT_ID env var scopes create, list, and ready."""
+
+    def test_create_uses_env_parent(self, jcli, monkeypatch, dbfile):
+        _, parent = jcli('--json create "Epic" --type epic')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", parent["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env('--json create "Task"')
+        assert exit_code == 0
+        assert data["parent_id"] == parent["id"]
+
+    def test_create_explicit_parent_overrides_env(self, jcli, monkeypatch, dbfile):
+        _, epic1 = jcli('--json create "Epic 1" --type epic')
+        _, epic2 = jcli('--json create "Epic 2" --type epic')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", epic1["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env(f'--json create "Task" --parent {epic2["id"]}')
+        assert exit_code == 0
+        assert data["parent_id"] == epic2["id"]
+
+    def test_list_scoped_by_env_parent(self, jcli, monkeypatch, dbfile):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", parent["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env("--json list")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]
+
+    def test_ready_scoped_by_env_parent(self, jcli, monkeypatch, dbfile):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", parent["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env("--json ready")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]

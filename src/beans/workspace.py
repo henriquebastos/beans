@@ -8,6 +8,7 @@ from beans.store import Store
 
 BEANS_DIR = ".beans"
 ENV_BEANS_DIR = "MAGIC_BEANS_DIR"
+ENV_BEANS_PARENT_ID = "MAGIC_BEANS_PARENT_ID"
 DB_NAME = "beans.db"
 AGENTS_MD = "AGENTS.md"
 GITIGNORE = ".gitignore"

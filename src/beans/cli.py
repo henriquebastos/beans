@@ -2,6 +2,7 @@
 from datetime import datetime
 import importlib.resources
 import json
+import os
 from typing import Annotated, NamedTuple
 
 # Pip imports
@@ -36,6 +37,16 @@ app = typer.Typer()
 dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
+
+ENV_BEANS_PARENT_ID = "MAGIC_BEANS_PARENT_ID"
+
+
+def default_parent_id():
+    """Get default parent_id from MAGIC_BEANS_PARENT_ID env var, or None."""
+    val = os.environ.get(ENV_BEANS_PARENT_ID)
+    if val:
+        return BeanId(val)
+    return None
 
 
 class Config(NamedTuple):
@@ -124,6 +135,8 @@ def create(
 ):
     """Create a new bean."""
     cfg = ctx.obj
+    if parent is None:
+        parent = default_parent_id()
     kwargs = {"body": body, "parent_id": parent}
     if type:
         kwargs["type"] = type
@@ -281,6 +294,8 @@ def list_cmd(
 ):
     """List all beans."""
     cfg = ctx.obj
+    if parent is None:
+        parent = default_parent_id()
     types = type.split(",") if type else None
     statuses = status.split(",") if status else None
     with get_store(cfg) as store:
@@ -298,6 +313,8 @@ def ready(
 ):
     """List only unblocked beans."""
     cfg = ctx.obj
+    if parent is None:
+        parent = default_parent_id()
     if assignee and unassigned:
         error(cfg, ValueError("--assignee and --unassigned are mutually exclusive"))
     with get_store(cfg) as store:
