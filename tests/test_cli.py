@@ -49,6 +49,8 @@ class TestCommandWiring:
         exit_code, data = jcli(f"--json show {created['id']}")
         assert exit_code == 0
         assert data["id"] == created["id"]
+        assert data["blocked_by"] == []
+        assert data["blocks"] == []
 
     def test_update(self, jcli):
         _, created = jcli('--json create "Old title"')
@@ -717,6 +719,55 @@ class TestRecipeCommand:
         assert "claude" in lines
         assert "gpt" in lines
         assert "generic" in lines
+
+
+class TestShowWithDeps:
+    """'beans --json show' includes blocked_by and blocks arrays."""
+
+    def test_show_json_includes_deps(self, jcli):
+        _, a = jcli('--json create "Blocker"')
+        _, b = jcli('--json create "Blocked"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+
+        exit_code, data = jcli(f"--json show {b['id']}")
+        assert exit_code == 0
+        assert data["blocked_by"] == [a["id"]]
+        assert data["blocks"] == []
+
+    def test_show_json_blocks_field(self, jcli):
+        _, a = jcli('--json create "Blocker"')
+        _, b = jcli('--json create "Blocked"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+
+        exit_code, data = jcli(f"--json show {a['id']}")
+        assert exit_code == 0
+        assert data["blocked_by"] == []
+        assert data["blocks"] == [b["id"]]
+
+    def test_show_json_no_deps_empty_arrays(self, jcli):
+        _, bean = jcli('--json create "Standalone"')
+        exit_code, data = jcli(f"--json show {bean['id']}")
+        assert exit_code == 0
+        assert data["blocked_by"] == []
+        assert data["blocks"] == []
+
+    def test_show_json_multiple_deps(self, jcli):
+        _, a = jcli('--json create "A"')
+        _, b = jcli('--json create "B"')
+        _, c = jcli('--json create "C"')
+        jcli(f"--json dep add {a['id']} {c['id']}")
+        jcli(f"--json dep add {b['id']} {c['id']}")
+
+        exit_code, data = jcli(f"--json show {c['id']}")
+        assert exit_code == 0
+        assert set(data["blocked_by"]) == {a["id"], b["id"]}
+        assert data["blocks"] == []
+
+    def test_show_text_mode_unchanged(self, cli, jcli):
+        _, bean = jcli('--json create "Task"')
+        exit_code, output = cli(f"show {bean['id']}")
+        assert exit_code == 0
+        assert "blocked_by" not in output
 
 
 class TestParentFilter:

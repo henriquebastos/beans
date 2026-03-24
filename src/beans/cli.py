@@ -147,10 +147,19 @@ def show(ctx: typer.Context, bean_id: BeanIdArg):
     try:
         with get_store(cfg) as store:
             bean = show_bean(store, bean_id)
+            all_deps = store.list_all_deps()
     except BeanNotFoundError as e:
         error(cfg, e)
 
-    typer.echo(output(bean, cfg.json, cfg.fields))
+    if cfg.json:
+        data = bean.model_dump()
+        data["blocked_by"] = [str(d.from_id) for d in all_deps if d.to_id == bean_id and d.dep_type == "blocks"]
+        data["blocks"] = [str(d.to_id) for d in all_deps if d.from_id == bean_id and d.dep_type == "blocks"]
+        if cfg.fields:
+            data = {k: v for k, v in data.items() if k in cfg.fields}
+        typer.echo(json.dumps(data, default=str))
+    else:
+        typer.echo(output(bean, False, cfg.fields))
 
 
 @app.command()
