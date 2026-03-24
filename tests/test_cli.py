@@ -844,6 +844,26 @@ class TestMagicBeansParentId:
         assert len(data) == 1
         assert data[0]["parent_id"] == parent["id"]
 
+    def test_create_with_nonexistent_parent_errors(self, jcli):
+        exit_code, data = jcli('--json create "Bad" --parent bean-00000000')
+        assert exit_code != 0
+        assert "does not exist" in data["message"]
+
+    def test_env_parent_nonexistent_errors(self, jcli, monkeypatch, dbfile):
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", "bean-00000000")
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            import json as json_mod
+            data = json_mod.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env('--json create "Bad"')
+        assert exit_code != 0
+        assert "does not exist" in data["message"]
+
     def test_ready_scoped_by_env_parent(self, jcli, monkeypatch, dbfile):
         _, parent = jcli('--json create "Epic" --type epic')
         jcli(f'--json create "Task 1" --parent {parent["id"]}')

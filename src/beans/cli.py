@@ -147,7 +147,7 @@ def create(
     try:
         with get_store(cfg) as store:
             bean = create_bean(store, title, **kwargs)
-    except ValidationError as e:
+    except (ValidationError, BeanNotFoundError) as e:
         error(cfg, e)
 
     typer.echo(output(bean, cfg.json))

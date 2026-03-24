@@ -74,6 +74,10 @@ class TestCreateBean:
         close_bean(store, b.id)
         assert bean in ready_beans(store)
 
+    def test_create_with_nonexistent_parent_raises(self, store):
+        with pytest.raises(BeanNotFoundError, match="does not exist"):
+            create_bean(store, "Orphan", parent_id=BeanId("bean-00000000"))
+
 
 class TestShowBean:
     """show_bean() retrieves a single bean by id."""
