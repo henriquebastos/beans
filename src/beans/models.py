@@ -16,6 +16,10 @@ class DepNotFoundError(KeyError):
     pass
 
 
+class CyclicDepError(ValueError):
+    pass
+
+
 ID_PREFIX = "bean-"
 ID_BYTES = 4
 

@@ -24,7 +24,7 @@ from beans.api import (
     stats,
     update_bean,
 )
-from beans.models import BeanId, BeanNotFoundError, Dep, DepNotFoundError
+from beans.models import BeanId, BeanNotFoundError, CyclicDepError, Dep, DepNotFoundError
 from beans.store import Store
 
 
@@ -370,6 +370,57 @@ class TestAddDep:
         b = create_bean(store, "Task B")
         add_dep(store, a.id, b.id)
         assert len(store.dep.list(a.id)) == 1
+
+
+class TestCyclicDepPrevention:
+    """add_dep() prevents circular dependencies."""
+
+    def test_self_dep_rejected(self, store):
+        a = create_bean(store, "Task A")
+        with pytest.raises(CyclicDepError, match="cycle"):
+            add_dep(store, a.id, a.id)
+
+    def test_direct_cycle_rejected(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        add_dep(store, a.id, b.id)
+        with pytest.raises(CyclicDepError, match="cycle"):
+            add_dep(store, b.id, a.id)
+
+    def test_transitive_cycle_rejected(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        c = create_bean(store, "Task C")
+        add_dep(store, a.id, b.id)
+        add_dep(store, b.id, c.id)
+        with pytest.raises(CyclicDepError, match="cycle"):
+            add_dep(store, c.id, a.id)
+
+    def test_cycle_error_includes_titles(self, store):
+        a = create_bean(store, "Alpha")
+        b = create_bean(store, "Beta")
+        add_dep(store, a.id, b.id)
+        with pytest.raises(CyclicDepError, match="Alpha"):
+            add_dep(store, b.id, a.id)
+
+    def test_cycle_error_includes_path(self, store):
+        a = create_bean(store, "Alpha")
+        b = create_bean(store, "Beta")
+        c = create_bean(store, "Gamma")
+        add_dep(store, a.id, b.id)
+        add_dep(store, b.id, c.id)
+        with pytest.raises(CyclicDepError, match="\u2192"):
+            add_dep(store, c.id, a.id)
+
+    def test_non_cyclic_dep_allowed(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        c = create_bean(store, "Task C")
+        add_dep(store, a.id, b.id)
+        add_dep(store, a.id, c.id)
+        dep = add_dep(store, b.id, c.id)
+        assert dep.from_id == b.id
+        assert dep.to_id == c.id
 
 
 class TestRemoveDep:

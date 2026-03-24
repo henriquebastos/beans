@@ -2,7 +2,7 @@
 from datetime import UTC, datetime
 
 # Internal imports
-from beans.models import Bean, BeanNotFoundError, BeanUpdate, Dep, DepNotFoundError
+from beans.models import Bean, BeanNotFoundError, BeanUpdate, CyclicDepError, Dep, DepNotFoundError
 from beans.store import Store
 
 
@@ -96,6 +96,57 @@ def list_deps(store: Store, from_id) -> list[Dep]:
 
 
 def add_dep(store: Store, from_id, to_id, dep_type="blocks") -> Dep:
+    # Self-dep check
+    if from_id == to_id:
+        bean = store.get(from_id)
+        raise CyclicDepError(
+            f"Adding this dependency would create a cycle: {from_id} \"{bean.title}\" \u2192 {from_id} \"{bean.title}\""
+        )
+
+    # Cycle detection: check if from_id is reachable from to_id via existing deps
+    all_deps = store.list_all_deps()
+
+    # Build forward adjacency (from -> [to, ...])
+    adjacency = {}
+    for d in all_deps:
+        adjacency.setdefault(d.from_id, []).append(d.to_id)
+
+    # BFS/DFS from to_id to see if we can reach from_id
+    visited = set()
+    stack = [to_id]
+    path_map = {to_id: [to_id]}
+
+    while stack:
+        current = stack.pop()
+        if current == from_id:
+            cycle_ids = [from_id] + path_map[from_id]
+            # Fetch titles
+            beans_by_id = {}
+            for bid in set(cycle_ids):
+                try:
+                    beans_by_id[bid] = store.get(bid)
+                except BeanNotFoundError:
+                    beans_by_id[bid] = None
+
+            parts = []
+            for bid in cycle_ids:
+                b = beans_by_id.get(bid)
+                title = f' "{b.title}"' if b else ""
+                parts.append(f"{bid}{title}")
+
+            raise CyclicDepError(
+                f"Adding this dependency would create a cycle: {' \u2192 '.join(parts)}"
+            )
+
+        if current in visited:
+            continue
+        visited.add(current)
+
+        for neighbor in adjacency.get(current, []):
+            if neighbor not in visited:
+                path_map[neighbor] = path_map[current] + [neighbor]
+                stack.append(neighbor)
+
     dep = Dep(from_id=from_id, to_id=to_id, dep_type=dep_type)
     store.add_dep(dep)
     return dep

@@ -574,6 +574,24 @@ class TestCreateWithDeps:
         assert bean["id"] not in ready_ids
 
 
+class TestCyclicDepCli:
+    """CLI rejects circular dependencies with proper error."""
+
+    def test_self_dep_error(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        exit_code, data = jcli(f"--json dep add {a['id']} {a['id']}")
+        assert exit_code != 0
+        assert "cycle" in data["message"]
+
+    def test_circular_dep_error(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+        exit_code, data = jcli(f"--json dep add {b['id']} {a['id']}")
+        assert exit_code != 0
+        assert "cycle" in data["message"]
+
+
 class TestRecipeCommand:
     """'beans recipe <client>' outputs agent-specific instructions."""
 
