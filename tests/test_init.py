@@ -59,11 +59,28 @@ class TestInitCommand:
         assert agents_file.exists()
         assert "beans" in agents_file.read_text().lower()
 
+    def test_init_creates_gitignore(self, project_dir, cli):
+        cli("init")
+
+        gitignore = project_dir / ".beans" / ".gitignore"
+        assert gitignore.exists()
+        assert gitignore.read_text() == "*\n!.gitignore\n!AGENTS.md\n!journal.jsonl\n"
+
     def test_init_idempotent(self, project_dir, cli):
         cli("init")
         result = cli("init")
 
         assert result.exit_code == 0
+
+    def test_init_does_not_overwrite_existing_gitignore(self, project_dir, cli):
+        beans_dir = project_dir / ".beans"
+        beans_dir.mkdir()
+        gitignore = beans_dir / ".gitignore"
+        gitignore.write_text("custom rules")
+
+        cli("init")
+
+        assert gitignore.read_text() == "custom rules"
 
     def test_init_does_not_overwrite_existing_agents_md(self, project_dir, cli):
         beans_dir = project_dir / ".beans"
