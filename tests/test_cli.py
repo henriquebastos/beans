@@ -524,6 +524,28 @@ class TestConfigCommand:
         assert "alice" in output
 
 
+class TestCreateWithDeps:
+    """'beans create --dep' creates inline dependencies."""
+
+    def test_create_with_dep(self, jcli):
+        _, blocker = jcli('--json create "Blocker"')
+        exit_code, bean = jcli(f'--json create "Blocked" --dep {blocker["id"]}')
+        assert exit_code == 0
+        _, ready = jcli("--json ready")
+        ready_ids = [b["id"] for b in ready]
+        assert blocker["id"] in ready_ids
+        assert bean["id"] not in ready_ids
+
+    def test_create_with_multiple_deps(self, jcli):
+        _, a = jcli('--json create "Dep A"')
+        _, b = jcli('--json create "Dep B"')
+        exit_code, bean = jcli(f'--json create "Blocked" --dep {a["id"]} --dep {b["id"]}')
+        assert exit_code == 0
+        _, ready = jcli("--json ready")
+        ready_ids = [b["id"] for b in ready]
+        assert bean["id"] not in ready_ids
+
+
 class TestRecipeCommand:
     """'beans recipe <client>' outputs agent-specific instructions."""
 

@@ -56,6 +56,23 @@ class TestCreateBean:
         bean = create_bean(store, "Fix auth")
         assert show_bean(store, bean.id) == bean
 
+    def test_create_with_deps(self, store):
+        blocker = create_bean(store, "Blocker")
+        bean = create_bean(store, "Blocked", deps=[blocker.id])
+        assert bean not in ready_beans(store)
+        close_bean(store, blocker.id)
+        assert bean in ready_beans(store)
+
+    def test_create_with_multiple_deps(self, store):
+        a = create_bean(store, "Dep A")
+        b = create_bean(store, "Dep B")
+        bean = create_bean(store, "Blocked by both", deps=[a.id, b.id])
+        assert bean not in ready_beans(store)
+        close_bean(store, a.id)
+        assert bean not in ready_beans(store)
+        close_bean(store, b.id)
+        assert bean in ready_beans(store)
+
 
 class TestShowBean:
     """show_bean() retrieves a single bean by id."""
