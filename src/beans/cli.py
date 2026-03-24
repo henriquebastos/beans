@@ -20,6 +20,7 @@ from beans.api import (
     release_bean,
     release_mine,
     remove_dep,
+    reopen_bean,
     search_beans,
     show_bean,
     update_bean,
@@ -166,9 +167,21 @@ def update(
     """Update fields on a bean."""
     cfg = ctx.obj
     fields = {"title": title, "type": type, "status": status, "priority": priority, "body": body, "parent_id": parent}
+    clean_fields = {k: v for k, v in fields.items() if v is not None}
     try:
         with get_store(cfg) as store:
-            bean = update_bean(store, bean_id, **{k: v for k, v in fields.items() if v is not None})
+            # If status is changing away from closed, use reopen_bean
+            if status and status != "closed":
+                current = show_bean(store, bean_id)
+                if current.status == "closed":
+                    other_fields = {k: v for k, v in clean_fields.items() if k != "status"}
+                    bean = reopen_bean(store, bean_id, status=status)
+                    if other_fields:
+                        bean = update_bean(store, bean_id, **other_fields)
+                else:
+                    bean = update_bean(store, bean_id, **clean_fields)
+            else:
+                bean = update_bean(store, bean_id, **clean_fields)
     except (BeanNotFoundError, ValidationError) as e:
         error(cfg, e)
 

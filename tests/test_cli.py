@@ -154,6 +154,34 @@ class TestReleaseArgParsing:
         assert exit_code != 0
 
 
+class TestReopenViaCli:
+    """'beans update --status open' on closed bean clears closed_at/close_reason."""
+
+    def test_update_status_open_clears_closed_fields(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        jcli(f"--json close {bean['id']} --reason Done")
+        exit_code, data = jcli(f"--json update {bean['id']} --status open")
+        assert exit_code == 0
+        assert data["status"] == "open"
+        assert data["closed_at"] is None
+        assert data["close_reason"] is None
+
+    def test_update_status_in_progress_clears_closed_fields(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        jcli(f"--json close {bean['id']}")
+        exit_code, data = jcli(f"--json update {bean['id']} --status in_progress")
+        assert exit_code == 0
+        assert data["status"] == "in_progress"
+        assert data["closed_at"] is None
+
+    def test_update_non_closed_bean_status_unchanged(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        exit_code, data = jcli(f"--json update {bean['id']} --status in_progress")
+        assert exit_code == 0
+        assert data["status"] == "in_progress"
+        assert data["closed_at"] is None
+
+
 class TestHumanOutput:
     """Text-mode output works for human consumption."""
 

@@ -18,6 +18,7 @@ from beans.api import (
     release_bean,
     release_mine,
     remove_dep,
+    reopen_bean,
     search_beans,
     show_bean,
     stats,
@@ -133,6 +134,32 @@ class TestCloseBean:
     def test_close_nonexistent_raises(self, store):
         with pytest.raises(BeanNotFoundError):
             close_bean(store, BeanId("bean-00000000"))
+
+
+class TestReopenBean:
+    """reopen_bean() clears closed_at and close_reason."""
+
+    def test_reopen_clears_closed_fields(self, store):
+        bean = create_bean(store, "Task")
+        close_bean(store, bean.id, reason="Done")
+        result = reopen_bean(store, bean.id)
+        assert result.status == "open"
+        assert result.closed_at is None
+        assert result.close_reason is None
+
+    def test_reopen_to_in_progress(self, store):
+        bean = create_bean(store, "Task")
+        close_bean(store, bean.id)
+        result = reopen_bean(store, bean.id, status="in_progress")
+        assert result.status == "in_progress"
+        assert result.closed_at is None
+
+    def test_reopen_preserves_other_fields(self, store):
+        bean = create_bean(store, "Task", body="important", priority=1)
+        close_bean(store, bean.id, reason="Done")
+        result = reopen_bean(store, bean.id)
+        assert result.body == "important"
+        assert result.priority == 1
 
 
 class TestDeleteBean:

@@ -36,6 +36,12 @@ def close_bean(store: Store, bean_id, reason=None) -> Bean:
     return store.get(bean_id)
 
 
+def reopen_bean(store: Store, bean_id, status="open") -> Bean:
+    """Reopen a closed bean, clearing closed_at and close_reason."""
+    store.update(bean_id, status=status, closed_at=None, close_reason=None)
+    return store.get(bean_id)
+
+
 def delete_bean(store: Store, bean_id) -> Bean:
     bean = store.get(bean_id)
     store.delete(bean_id)
