@@ -28,7 +28,7 @@ from beans.api import (
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
-from beans.models import Bean, BeanId, BeanNotFoundError, CyclicDepError, Dep, DepNotFoundError, Error
+from beans.models import Bean, BeanId, BeanNotFoundError, CyclicDepError, Dep, DepNotFoundError, Error, OpenChildrenError
 from beans.store import Store
 from beans.workspace import DB_NAME, find_beans_dir, init_project
 
@@ -193,13 +193,14 @@ def close(
     ctx: typer.Context,
     bean_id: BeanIdArg,
     reason: Annotated[str | None, typer.Option(help="Reason for closing")] = None,
+    force: Annotated[bool, typer.Option("--force", help="Close even if children are open")] = False,
 ):
     """Close a bean (set status=closed and closed_at)."""
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            bean = close_bean(store, bean_id, reason=reason)
-    except BeanNotFoundError as e:
+            bean = close_bean(store, bean_id, reason=reason, force=force)
+    except (BeanNotFoundError, OpenChildrenError) as e:
         error(cfg, e)
 
     typer.echo(output(bean, cfg.json))

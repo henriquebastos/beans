@@ -592,6 +592,30 @@ class TestCyclicDepCli:
         assert "cycle" in data["message"]
 
 
+class TestCloseChildrenGuardCli:
+    """CLI guards against closing beans with open children."""
+
+    def test_close_with_children_error(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task" --parent {parent["id"]}')
+        exit_code, data = jcli(f"--json close {parent['id']}")
+        assert exit_code != 0
+        assert "open" in data["message"]
+
+    def test_close_with_children_force(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task" --parent {parent["id"]}')
+        exit_code, data = jcli(f"--json close {parent['id']} --force")
+        assert exit_code == 0
+        assert data["status"] == "closed"
+
+    def test_close_no_children(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        exit_code, data = jcli(f"--json close {bean['id']}")
+        assert exit_code == 0
+        assert data["status"] == "closed"
+
+
 class TestRecipeCommand:
     """'beans recipe <client>' outputs agent-specific instructions."""
 
