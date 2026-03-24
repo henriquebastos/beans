@@ -131,6 +131,26 @@ class TestBeanStoreDeleteBean:
         assert store.bean.delete(BeanId("bean-00000000")) == 0
 
 
+class TestBeanStoreListByParent:
+    """BeanStore.list() supports parent_id filtering."""
+
+    def test_filter_by_parent(self, store):
+        parent = store.bean.create(Bean(title="Parent"))
+        child = store.bean.create(Bean(title="Child", parent_id=parent.id))
+        store.bean.create(Bean(title="Other"))
+        result = store.bean.list(parent_id=parent.id)
+        assert result == [child]
+
+    def test_no_parent_filter_returns_all(self, store):
+        parent = store.bean.create(Bean(title="Parent"))
+        child = store.bean.create(Bean(title="Child", parent_id=parent.id))
+        assert store.bean.list() == [parent, child]
+
+    def test_parent_filter_no_children(self, store):
+        parent = store.bean.create(Bean(title="Parent"))
+        assert store.bean.list(parent_id=parent.id) == []
+
+
 class TestBeanStoreReady:
     """BeanStore.ready() returns only unblocked beans."""
 
@@ -272,6 +292,25 @@ class TestBeanStoreListFilters:
         a = store.bean.create(Bean(title="A"))
         b = store.bean.create(Bean(title="B"))
         assert store.bean.list() == [a, b]
+
+
+class TestBeanStoreReadyByParent:
+    """BeanStore.ready() supports parent_id filtering."""
+
+    def test_ready_filter_by_parent(self, store):
+        epic = store.bean.create(Bean(title="Epic"))
+        task1 = store.bean.create(Bean(title="Task 1", parent_id=epic.id))
+        store.bean.create(Bean(title="Unrelated"))
+        result = store.bean.ready(parent_id=epic.id)
+        assert result == [task1]
+
+    def test_ready_parent_filter_respects_deps(self, store):
+        epic = store.bean.create(Bean(title="Epic"))
+        t1 = store.bean.create(Bean(title="Task 1", parent_id=epic.id))
+        t2 = store.bean.create(Bean(title="Task 2", parent_id=epic.id))
+        store.dep.add(Dep(from_id=t1.id, to_id=t2.id))
+        result = store.bean.ready(parent_id=epic.id)
+        assert result == [t1]
 
 
 class TestBeanStoreValidation:
