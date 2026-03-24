@@ -481,6 +481,32 @@ class TestRebuildCommand:
         assert data["title"] == "Updated"
 
 
+class TestReadyFilters:
+    """'beans ready' supports --assignee and --unassigned flags."""
+
+    def test_ready_assignee_filter(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        jcli('--json create "Task B"')
+        jcli(f"--json claim {a['id']} --actor alice")
+        exit_code, data = jcli("--json ready --assignee alice")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["assignee"] == "alice"
+
+    def test_ready_unassigned_filter(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json claim {a['id']} --actor alice")
+        exit_code, data = jcli("--json ready --unassigned")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["id"] == b["id"]
+
+    def test_ready_assignee_and_unassigned_mutually_exclusive(self, jcli):
+        exit_code, data = jcli("--json ready --assignee alice --unassigned")
+        assert exit_code != 0
+
+
 class TestStatsCommand:
     """'beans stats' outputs aggregate counts."""
 

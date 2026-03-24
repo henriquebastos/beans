@@ -222,6 +222,22 @@ class TestBeanStoreReady:
 
         assert parent in store.bean.ready()
 
+    def test_ready_filter_by_assignee(self, store):
+        a = store.bean.create(Bean(title="Task A", assignee="alice", status="in_progress"))
+        store.bean.create(Bean(title="Task B", assignee="bob", status="in_progress"))
+        store.bean.create(Bean(title="Task C"))
+        assert store.bean.ready(assignee="alice") == [a]
+
+    def test_ready_filter_unassigned(self, store):
+        store.bean.create(Bean(title="Task A", assignee="alice", status="in_progress"))
+        c = store.bean.create(Bean(title="Task C"))
+        assert store.bean.ready(unassigned=True) == [c]
+
+    def test_ready_no_filter_returns_all(self, store):
+        a = store.bean.create(Bean(title="Task A", assignee="alice", status="in_progress"))
+        b = store.bean.create(Bean(title="Task B"))
+        assert store.bean.ready() == [a, b]
+
 
 class TestBeanStoreListFilters:
     """BeanStore.list() supports type and status filtering."""
