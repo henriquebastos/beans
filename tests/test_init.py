@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 # Internal imports
 from beans.cli import app
-from beans.workspace import find_beans_dir
+from beans.workspace import find_beans_dir, init_project
 
 
 @pytest.fixture()
@@ -104,6 +104,26 @@ class TestInitCommand:
         assert custom.is_dir()
         assert (custom / "beans.db").exists()
         assert (custom / "AGENTS.md").exists()
+        assert not (tmp_path / ".beans").exists()
+
+
+class TestInitProject:
+    """init_project() can be directed without changing process cwd."""
+
+    def test_init_project_uses_explicit_cwd(self, tmp_path):
+        beans_dir = init_project(cwd=tmp_path)
+        assert beans_dir == tmp_path / ".beans"
+        assert (beans_dir / "beans.db").exists()
+        assert (beans_dir / "AGENTS.md").exists()
+        assert (beans_dir / ".gitignore").exists()
+
+    def test_init_project_uses_env_override(self, tmp_path):
+        custom = tmp_path / "custom-beans"
+        beans_dir = init_project(cwd=tmp_path, env={"MAGIC_BEANS_DIR": str(custom)})
+        assert beans_dir == custom
+        assert (custom / "beans.db").exists()
+        assert (custom / "AGENTS.md").exists()
+        assert (custom / ".gitignore").exists()
         assert not (tmp_path / ".beans").exists()
 
 

@@ -505,7 +505,7 @@ class TestReadyFilters:
         assert data[0]["id"] == b["id"]
 
     def test_ready_assignee_and_unassigned_mutually_exclusive(self, jcli):
-        exit_code, data = jcli("--json ready --assignee alice --unassigned")
+        exit_code, _ = jcli("--json ready --assignee alice --unassigned")
         assert exit_code != 0
 
 
