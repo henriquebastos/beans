@@ -143,7 +143,7 @@ beans --json list
 ### Bean CRUD
 
 ```bash
-# Create (types: task, bug, epic, project)
+# Create (types: task, bug, epic, project, review)
 beans create "Fix auth" --type bug --body "Detailed description" --parent bean-<id>
 
 # Show

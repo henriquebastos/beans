@@ -44,6 +44,11 @@ class TestCommandWiring:
         assert exit_code == 0
         assert data["title"] == "Fix auth"
 
+    def test_create_review_type(self, jcli):
+        exit_code, data = jcli('--json create "Review PR" --type review')
+        assert exit_code == 0
+        assert data["type"] == "review"
+
     def test_show(self, jcli):
         _, created = jcli('--json create "Fix auth"')
         exit_code, data = jcli(f"--json show {created['id']}")
@@ -57,6 +62,12 @@ class TestCommandWiring:
         exit_code, data = jcli(f'--json update {created["id"]} --title "New title"')
         assert exit_code == 0
         assert data["title"] == "New title"
+
+    def test_update_type_to_review(self, jcli):
+        _, created = jcli('--json create "Old title"')
+        exit_code, data = jcli(f'--json update {created["id"]} --type review')
+        assert exit_code == 0
+        assert data["type"] == "review"
 
     def test_close(self, jcli):
         _, created = jcli('--json create "Fix auth"')
@@ -515,11 +526,12 @@ class TestStatsCommand:
     def test_stats_json_output(self, jcli):
         jcli('--json create "Task A"')
         jcli('--json create "Task B" --type bug')
+        jcli('--json create "Review C" --type review')
 
         exit_code, data = jcli("--json stats")
         assert exit_code == 0
-        assert data["by_status"] == {"open": 2}
-        assert data["by_type"] == {"task": 1, "bug": 1}
+        assert data["by_status"] == {"open": 3}
+        assert data["by_type"] == {"task": 1, "bug": 1, "review": 1}
 
     def test_stats_human_output(self, cli, jcli):
         jcli('--json create "Task A"')

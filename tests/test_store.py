@@ -390,10 +390,11 @@ class TestBeanStoreStats:
         store.bean.create(Bean(title="A"))
         store.bean.create(Bean(title="B", type="bug"))
         store.bean.create(Bean(title="C", type="epic"))
-        store.bean.create(Bean(title="D"))
+        store.bean.create(Bean(title="D", type="review"))
+        store.bean.create(Bean(title="E"))
 
         result = store.bean.stats()
-        assert result["by_type"] == {"task": 2, "bug": 1, "epic": 1}
+        assert result["by_type"] == {"task": 2, "bug": 1, "epic": 1, "review": 1}
 
     def test_stats_by_assignee(self, store):
         store.bean.create(Bean(title="A", assignee="alice"))

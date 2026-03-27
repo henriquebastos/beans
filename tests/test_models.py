@@ -50,6 +50,10 @@ class TestBeanCustomFields:
         bean = Bean(title="Design review", type="epic")
         assert bean.type == "epic"
 
+    def test_review_type(self):
+        bean = Bean(title="Review migration plan", type="review")
+        assert bean.type == "review"
+
     def test_custom_status(self):
         bean = Bean(title="Done", status="closed")
         assert bean.status == "closed"

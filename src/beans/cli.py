@@ -137,7 +137,7 @@ def init():
 def create(
     ctx: typer.Context,
     title: str,
-    type: Annotated[str | None, typer.Option(help="Bean type (task, bug, epic, project)")] = None,
+    type: Annotated[str | None, typer.Option(help="Bean type (task, bug, epic, project, review)")] = None,
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
     priority: Annotated[int | None, typer.Option(help="Priority (0=highest, 4=lowest)")] = None,
@@ -193,7 +193,7 @@ def update(
     ctx: typer.Context,
     bean_id: BeanIdArg,
     title: Annotated[str | None, typer.Option(help="New title")] = None,
-    type: Annotated[str | None, typer.Option(help="New type (task, bug, epic, project)")] = None,
+    type: Annotated[str | None, typer.Option(help="New type (task, bug, epic, project, review)")] = None,
     status: Annotated[str | None, typer.Option(help="New status")] = None,
     priority: Annotated[int | None, typer.Option(help="New priority")] = None,
     body: Annotated[str | None, typer.Option(help="New body")] = None,

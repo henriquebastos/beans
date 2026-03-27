@@ -53,6 +53,11 @@ class TestCreateBean:
         bean = create_bean(store, "Urgent task", priority=0)
         assert bean.priority == 0
 
+    def test_create_review(self, store):
+        bean = create_bean(store, "Review API", type="review", body="Clarify error handling")
+        assert bean.type == "review"
+        assert bean.body == "Clarify error handling"
+
     def test_create_persists(self, store):
         bean = create_bean(store, "Fix auth")
         assert show_bean(store, bean.id) == bean
