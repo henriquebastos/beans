@@ -1,3 +1,33 @@
+## [0.5.1] - 2026-03-27
+
+### 🚀 Features
+
+- *(workspace)* Add MAGIC_BEANS_DIR env var override
+- *(init)* Generate .gitignore in beans directory on init
+- *(cli)* Add --priority flag to beans create
+- *(cli)* Add --dep flag to beans create
+- *(api)* Add reopen_bean() to clear closed fields on status change
+- *(dep)* Prevent circular dependencies in beans dep add
+- *(close)* Guard against closing a bean with open children
+- *(list)* Add --type and --status filters to beans list
+- *(ready)* Add --assignee and --unassigned filters to beans ready
+- *(list,ready)* Add --parent filter to scope queries by parent bean
+- *(show)* Include blocked_by and blocks in JSON output
+- *(cli)* Add MAGIC_BEANS_PARENT_ID env var for default parent scoping
+- *(create)* Validate parent bean exists before creation
+- Add review bean type #closes bean-031d2faf
+
+### 🚜 Refactor
+
+- Address PR review feedback #closes bean-79860afc
+
+### 📚 Documentation
+
+- Update CHANGELOG.md
+
+### ⚙️ Miscellaneous Tasks
+
+- Sync uv.lock
 ## [0.5.0] - 2026-03-19
 
 ### 🚀 Features
