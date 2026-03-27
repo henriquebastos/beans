@@ -6,7 +6,7 @@ from pathlib import Path
 # Internal imports
 from beans.store import Store
 
-BEANS_DIR = ".beans"
+DEFAULT_BEANS_DIR = ".beans"
 ENV_BEANS_DIR = "MAGIC_BEANS_DIR"
 ENV_BEANS_PARENT_ID = "MAGIC_BEANS_PARENT_ID"
 DB_NAME = "beans.db"
@@ -15,14 +15,13 @@ GITIGNORE = ".gitignore"
 GITIGNORE_CONTENT = "*\n!.gitignore\n!AGENTS.md\n!journal.jsonl\n"
 
 
-def find_beans_dir(start=None, dirname=BEANS_DIR) -> Path:
-    """Walk up from start (default cwd) to find a .beans/ directory."""
-    env_override = os.environ.get(ENV_BEANS_DIR)
-    if env_override:
-        p = Path(env_override)
-        if not p.is_dir():
-            raise FileNotFoundError(f"{ENV_BEANS_DIR}={env_override} is not a directory")
-        return p
+def env_beans_dir(env=os.environ, var=ENV_BEANS_DIR) -> Path | None:
+    if not (value := env.get(var)):
+        return None
+    return Path(value)
+
+
+def walk_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR) -> Path:
     current = Path(start) if start else Path.cwd()
     while True:
         candidate = current / dirname
@@ -34,10 +33,26 @@ def find_beans_dir(start=None, dirname=BEANS_DIR) -> Path:
         current = parent
 
 
-def init_project(dirname=BEANS_DIR, db_name=DB_NAME, agents_md=AGENTS_MD) -> Path:
+def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=ENV_BEANS_DIR) -> Path:
+    """Walk up from start (default cwd) to find a .beans/ directory."""
+    if beans_dir := env_beans_dir(env=env, var=var):
+        if not beans_dir.is_dir():
+            raise FileNotFoundError(f"{var}={beans_dir} is not a directory")
+        return beans_dir
+    return walk_beans_dir(start=start, dirname=dirname)
+
+
+def init_project(
+    dirname=DEFAULT_BEANS_DIR,
+    db_name=DB_NAME,
+    agents_md=AGENTS_MD,
+    cwd=None,
+    env=os.environ,
+    var=ENV_BEANS_DIR,
+) -> Path:
     """Initialize a beans project in the current directory. Returns the .beans/ path."""
-    env_override = os.environ.get(ENV_BEANS_DIR)
-    beans_dir = Path(env_override) if env_override else Path.cwd() / dirname
+    base = Path(cwd) if cwd else Path.cwd()
+    beans_dir = env_beans_dir(env=env, var=var) or base / dirname
     beans_dir.mkdir(exist_ok=True)
 
     db_path = beans_dir / db_name

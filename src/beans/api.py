@@ -6,12 +6,12 @@ from beans.models import Bean, BeanNotFoundError, BeanUpdate, CyclicDepError, De
 from beans.store import Store
 
 
-def create_bean(store: Store, title, deps=None, **fields) -> Bean:
-    if "parent_id" in fields and fields["parent_id"] is not None:
+def create_bean(store: Store, title, deps=(), **fields) -> Bean:
+    if parent_id := fields.get("parent_id"):
         try:
-            store.get(fields["parent_id"])
+            store.get(parent_id)
         except BeanNotFoundError:
-            raise BeanNotFoundError(f"Parent bean {fields['parent_id']} does not exist")
+            raise BeanNotFoundError(f"Parent bean {parent_id} does not exist")
     bean = Bean(title=title, **fields)
     store.create(bean)
     if deps:

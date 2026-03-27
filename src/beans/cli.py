@@ -5,8 +5,9 @@ import json
 import os
 from typing import Annotated, NamedTuple
 
-# Pip imports
 from pydantic import ValidationError
+
+# Pip imports
 import typer
 
 # Internal imports
@@ -29,7 +30,16 @@ from beans.api import (
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
-from beans.models import Bean, BeanId, BeanNotFoundError, CyclicDepError, Dep, DepNotFoundError, Error, OpenChildrenError
+from beans.models import (
+    Bean,
+    BeanId,
+    BeanNotFoundError,
+    CyclicDepError,
+    Dep,
+    DepNotFoundError,
+    Error,
+    OpenChildrenError,
+)
 from beans.store import Store
 from beans.workspace import DB_NAME, find_beans_dir, init_project
 
@@ -131,7 +141,10 @@ def create(
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
     priority: Annotated[int | None, typer.Option(help="Priority (0=highest, 4=lowest)")] = None,
-    dep: Annotated[list[str] | None, typer.Option("--dep", help="Bean ID that blocks this bean (repeatable)", parser=BeanId)] = None,
+    dep: Annotated[
+        list[str] | None,
+        typer.Option("--dep", help="Bean ID that blocks this bean (repeatable)", parser=BeanId),
+    ] = None,
 ):
     """Create a new bean."""
     cfg = ctx.obj
@@ -288,8 +301,14 @@ def release(
 @app.command("list")
 def list_cmd(
     ctx: typer.Context,
-    type: Annotated[str | None, typer.Option("--type", help="Filter by type (comma-separated, e.g. epic,task)")] = None,
-    status: Annotated[str | None, typer.Option("--status", help="Filter by status (comma-separated, e.g. open,in_progress)")] = None,
+    type: Annotated[
+        str | None,
+        typer.Option("--type", help="Filter by type (comma-separated, e.g. epic,task)"),
+    ] = None,
+    status: Annotated[
+        str | None,
+        typer.Option("--status", help="Filter by status (comma-separated, e.g. open,in_progress)"),
+    ] = None,
     parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
 ):
     """List all beans."""
