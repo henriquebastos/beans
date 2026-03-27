@@ -18,12 +18,13 @@ from beans.api import (
     release_bean,
     release_mine,
     remove_dep,
+    reopen_bean,
     search_beans,
     show_bean,
     stats,
     update_bean,
 )
-from beans.models import BeanId, BeanNotFoundError, Dep, DepNotFoundError
+from beans.models import BeanId, BeanNotFoundError, CyclicDepError, Dep, DepNotFoundError, OpenChildrenError
 from beans.store import Store
 
 
@@ -48,9 +49,34 @@ class TestCreateBean:
         assert bean.priority == 0
         assert bean.body == "Details"
 
+    def test_create_with_priority(self, store):
+        bean = create_bean(store, "Urgent task", priority=0)
+        assert bean.priority == 0
+
     def test_create_persists(self, store):
         bean = create_bean(store, "Fix auth")
         assert show_bean(store, bean.id) == bean
+
+    def test_create_with_deps(self, store):
+        blocker = create_bean(store, "Blocker")
+        bean = create_bean(store, "Blocked", deps=[blocker.id])
+        assert bean not in ready_beans(store)
+        close_bean(store, blocker.id)
+        assert bean in ready_beans(store)
+
+    def test_create_with_multiple_deps(self, store):
+        a = create_bean(store, "Dep A")
+        b = create_bean(store, "Dep B")
+        bean = create_bean(store, "Blocked by both", deps=[a.id, b.id])
+        assert bean not in ready_beans(store)
+        close_bean(store, a.id)
+        assert bean not in ready_beans(store)
+        close_bean(store, b.id)
+        assert bean in ready_beans(store)
+
+    def test_create_with_nonexistent_parent_raises(self, store):
+        with pytest.raises(BeanNotFoundError, match="does not exist"):
+            create_bean(store, "Orphan", parent_id=BeanId("bean-00000000"))
 
 
 class TestShowBean:
@@ -112,6 +138,67 @@ class TestCloseBean:
     def test_close_nonexistent_raises(self, store):
         with pytest.raises(BeanNotFoundError):
             close_bean(store, BeanId("bean-00000000"))
+
+
+class TestReopenBean:
+    """reopen_bean() clears closed_at and close_reason."""
+
+    def test_reopen_clears_closed_fields(self, store):
+        bean = create_bean(store, "Task")
+        close_bean(store, bean.id, reason="Done")
+        result = reopen_bean(store, bean.id)
+        assert result.status == "open"
+        assert result.closed_at is None
+        assert result.close_reason is None
+
+    def test_reopen_to_in_progress(self, store):
+        bean = create_bean(store, "Task")
+        close_bean(store, bean.id)
+        result = reopen_bean(store, bean.id, status="in_progress")
+        assert result.status == "in_progress"
+        assert result.closed_at is None
+
+    def test_reopen_preserves_other_fields(self, store):
+        bean = create_bean(store, "Task", body="important", priority=1)
+        close_bean(store, bean.id, reason="Done")
+        result = reopen_bean(store, bean.id)
+        assert result.body == "important"
+        assert result.priority == 1
+
+
+class TestCloseChildrenGuard:
+    """close_bean() guards against closing beans with open children."""
+
+    def test_close_with_open_children_raises(self, store):
+        parent = create_bean(store, "Epic")
+        create_bean(store, "Task", parent_id=parent.id)
+        with pytest.raises(OpenChildrenError, match="1 open child remain"):
+            close_bean(store, parent.id)
+
+    def test_close_with_open_children_force(self, store):
+        parent = create_bean(store, "Epic")
+        create_bean(store, "Task", parent_id=parent.id)
+        result = close_bean(store, parent.id, force=True)
+        assert result.status == "closed"
+
+    def test_close_with_all_children_closed(self, store):
+        parent = create_bean(store, "Epic")
+        child = create_bean(store, "Task", parent_id=parent.id)
+        close_bean(store, child.id)
+        result = close_bean(store, parent.id)
+        assert result.status == "closed"
+
+    def test_close_no_children_works(self, store):
+        bean = create_bean(store, "Task")
+        result = close_bean(store, bean.id)
+        assert result.status == "closed"
+
+    def test_close_multiple_open_children(self, store):
+        parent = create_bean(store, "Epic")
+        create_bean(store, "Task 1", parent_id=parent.id)
+        create_bean(store, "Task 2", parent_id=parent.id)
+        with pytest.raises(OpenChildrenError, match="2 open children remain"):
+            close_bean(store, parent.id)
 
 
 class TestDeleteBean:
@@ -256,6 +343,26 @@ class TestReadyBeans:
         assert parent not in ready_beans(store)
 
 
+class TestReadyBeansFilters:
+    """ready_beans() supports assignee filtering."""
+
+    def test_ready_filter_by_assignee(self, store):
+        a = create_bean(store, "Task A")
+        create_bean(store, "Task B")
+        claim_bean(store, a.id, "alice")
+        result = ready_beans(store, assignee="alice")
+        assert len(result) == 1
+        assert result[0].assignee == "alice"
+
+    def test_ready_filter_unassigned(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        claim_bean(store, a.id, "alice")
+        result = ready_beans(store, unassigned=True)
+        assert len(result) == 1
+        assert result[0].id == b.id
+
+
 class TestSearchBeans:
     """search_beans() finds beans by title and body."""
 
@@ -322,6 +429,57 @@ class TestAddDep:
         b = create_bean(store, "Task B")
         add_dep(store, a.id, b.id)
         assert len(store.dep.list(a.id)) == 1
+
+
+class TestCyclicDepPrevention:
+    """add_dep() prevents circular dependencies."""
+
+    def test_self_dep_rejected(self, store):
+        a = create_bean(store, "Task A")
+        with pytest.raises(CyclicDepError, match="cycle"):
+            add_dep(store, a.id, a.id)
+
+    def test_direct_cycle_rejected(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        add_dep(store, a.id, b.id)
+        with pytest.raises(CyclicDepError, match="cycle"):
+            add_dep(store, b.id, a.id)
+
+    def test_transitive_cycle_rejected(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        c = create_bean(store, "Task C")
+        add_dep(store, a.id, b.id)
+        add_dep(store, b.id, c.id)
+        with pytest.raises(CyclicDepError, match="cycle"):
+            add_dep(store, c.id, a.id)
+
+    def test_cycle_error_includes_titles(self, store):
+        a = create_bean(store, "Alpha")
+        b = create_bean(store, "Beta")
+        add_dep(store, a.id, b.id)
+        with pytest.raises(CyclicDepError, match="Alpha"):
+            add_dep(store, b.id, a.id)
+
+    def test_cycle_error_includes_path(self, store):
+        a = create_bean(store, "Alpha")
+        b = create_bean(store, "Beta")
+        c = create_bean(store, "Gamma")
+        add_dep(store, a.id, b.id)
+        add_dep(store, b.id, c.id)
+        with pytest.raises(CyclicDepError, match="\u2192"):
+            add_dep(store, c.id, a.id)
+
+    def test_non_cyclic_dep_allowed(self, store):
+        a = create_bean(store, "Task A")
+        b = create_bean(store, "Task B")
+        c = create_bean(store, "Task C")
+        add_dep(store, a.id, b.id)
+        add_dep(store, a.id, c.id)
+        dep = add_dep(store, b.id, c.id)
+        assert dep.from_id == b.id
+        assert dep.to_id == c.id
 
 
 class TestRemoveDep:

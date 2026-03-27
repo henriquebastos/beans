@@ -2,10 +2,12 @@
 from datetime import datetime
 import importlib.resources
 import json
+import os
 from typing import Annotated, NamedTuple
 
-# Pip imports
 from pydantic import ValidationError
+
+# Pip imports
 import typer
 
 # Internal imports
@@ -20,6 +22,7 @@ from beans.api import (
     release_bean,
     release_mine,
     remove_dep,
+    reopen_bean,
     search_beans,
     show_bean,
     update_bean,
@@ -27,7 +30,16 @@ from beans.api import (
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
 from beans.config import config_path, load_config
-from beans.models import Bean, BeanId, BeanNotFoundError, Dep, DepNotFoundError, Error
+from beans.models import (
+    Bean,
+    BeanId,
+    BeanNotFoundError,
+    CyclicDepError,
+    Dep,
+    DepNotFoundError,
+    Error,
+    OpenChildrenError,
+)
 from beans.store import Store
 from beans.workspace import DB_NAME, find_beans_dir, init_project
 
@@ -35,6 +47,16 @@ app = typer.Typer()
 dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
+
+ENV_BEANS_PARENT_ID = "MAGIC_BEANS_PARENT_ID"
+
+
+def default_parent_id():
+    """Get default parent_id from MAGIC_BEANS_PARENT_ID env var, or None."""
+    val = os.environ.get(ENV_BEANS_PARENT_ID)
+    if val:
+        return BeanId(val)
+    return None
 
 
 class Config(NamedTuple):
@@ -118,16 +140,27 @@ def create(
     type: Annotated[str | None, typer.Option(help="Bean type (task, bug, epic, project)")] = None,
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
+    priority: Annotated[int | None, typer.Option(help="Priority (0=highest, 4=lowest)")] = None,
+    dep: Annotated[
+        list[str] | None,
+        typer.Option("--dep", help="Bean ID that blocks this bean (repeatable)", parser=BeanId),
+    ] = None,
 ):
     """Create a new bean."""
     cfg = ctx.obj
+    if parent is None:
+        parent = default_parent_id()
     kwargs = {"body": body, "parent_id": parent}
     if type:
         kwargs["type"] = type
+    if priority is not None:
+        kwargs["priority"] = priority
+    if dep:
+        kwargs["deps"] = dep
     try:
         with get_store(cfg) as store:
             bean = create_bean(store, title, **kwargs)
-    except ValidationError as e:
+    except (ValidationError, BeanNotFoundError) as e:
         error(cfg, e)
 
     typer.echo(output(bean, cfg.json))
@@ -140,10 +173,19 @@ def show(ctx: typer.Context, bean_id: BeanIdArg):
     try:
         with get_store(cfg) as store:
             bean = show_bean(store, bean_id)
+            all_deps = store.list_all_deps()
     except BeanNotFoundError as e:
         error(cfg, e)
 
-    typer.echo(output(bean, cfg.json, cfg.fields))
+    if cfg.json:
+        data = bean.model_dump()
+        data["blocked_by"] = [str(d.from_id) for d in all_deps if d.to_id == bean_id and d.dep_type == "blocks"]
+        data["blocks"] = [str(d.to_id) for d in all_deps if d.from_id == bean_id and d.dep_type == "blocks"]
+        if cfg.fields:
+            data = {k: v for k, v in data.items() if k in cfg.fields}
+        typer.echo(json.dumps(data, default=str))
+    else:
+        typer.echo(output(bean, False, cfg.fields))
 
 
 @app.command()
@@ -160,9 +202,21 @@ def update(
     """Update fields on a bean."""
     cfg = ctx.obj
     fields = {"title": title, "type": type, "status": status, "priority": priority, "body": body, "parent_id": parent}
+    clean_fields = {k: v for k, v in fields.items() if v is not None}
     try:
         with get_store(cfg) as store:
-            bean = update_bean(store, bean_id, **{k: v for k, v in fields.items() if v is not None})
+            # If status is changing away from closed, use reopen_bean
+            if status and status != "closed":
+                current = show_bean(store, bean_id)
+                if current.status == "closed":
+                    other_fields = {k: v for k, v in clean_fields.items() if k != "status"}
+                    bean = reopen_bean(store, bean_id, status=status)
+                    if other_fields:
+                        bean = update_bean(store, bean_id, **other_fields)
+                else:
+                    bean = update_bean(store, bean_id, **clean_fields)
+            else:
+                bean = update_bean(store, bean_id, **clean_fields)
     except (BeanNotFoundError, ValidationError) as e:
         error(cfg, e)
 
@@ -174,13 +228,14 @@ def close(
     ctx: typer.Context,
     bean_id: BeanIdArg,
     reason: Annotated[str | None, typer.Option(help="Reason for closing")] = None,
+    force: Annotated[bool, typer.Option("--force", help="Close even if children are open")] = False,
 ):
     """Close a bean (set status=closed and closed_at)."""
     cfg = ctx.obj
     try:
         with get_store(cfg) as store:
-            bean = close_bean(store, bean_id, reason=reason)
-    except BeanNotFoundError as e:
+            bean = close_bean(store, bean_id, reason=reason, force=force)
+    except (BeanNotFoundError, OpenChildrenError) as e:
         error(cfg, e)
 
     typer.echo(output(bean, cfg.json))
@@ -244,21 +299,45 @@ def release(
 
 
 @app.command("list")
-def list_cmd(ctx: typer.Context):
+def list_cmd(
+    ctx: typer.Context,
+    type: Annotated[
+        str | None,
+        typer.Option("--type", help="Filter by type (comma-separated, e.g. epic,task)"),
+    ] = None,
+    status: Annotated[
+        str | None,
+        typer.Option("--status", help="Filter by status (comma-separated, e.g. open,in_progress)"),
+    ] = None,
+    parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
+):
     """List all beans."""
     cfg = ctx.obj
+    if parent is None:
+        parent = default_parent_id()
+    types = type.split(",") if type else None
+    statuses = status.split(",") if status else None
     with get_store(cfg) as store:
-        beans = list_beans(store)
+        beans = list_beans(store, types=types, statuses=statuses, parent_id=parent)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
 
 @app.command()
-def ready(ctx: typer.Context):
+def ready(
+    ctx: typer.Context,
+    assignee: Annotated[str | None, typer.Option(help="Filter by assignee name")] = None,
+    unassigned: Annotated[bool, typer.Option("--unassigned", help="Show only unclaimed beans")] = False,
+    parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
+):
     """List only unblocked beans."""
     cfg = ctx.obj
+    if parent is None:
+        parent = default_parent_id()
+    if assignee and unassigned:
+        error(cfg, ValueError("--assignee and --unassigned are mutually exclusive"))
     with get_store(cfg) as store:
-        beans = ready_beans(store)
+        beans = ready_beans(store, assignee=assignee, unassigned=unassigned, parent_id=parent)
 
     typer.echo(output(beans, cfg.json, cfg.fields))
 
@@ -430,8 +509,11 @@ def dep_add(
 ):
     """Add a dependency between two beans."""
     cfg = ctx.obj
-    with get_store(cfg) as store:
-        dep = add_dep(store, from_id, to_id, dep_type)
+    try:
+        with get_store(cfg) as store:
+            dep = add_dep(store, from_id, to_id, dep_type)
+    except CyclicDepError as e:
+        error(cfg, e)
     typer.echo(output(dep, cfg.json))
 
 

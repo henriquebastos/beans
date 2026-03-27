@@ -194,8 +194,24 @@ class BeanStore:
                 journal_log(self.conn, "delete", bean.id, bean_snapshot(bean))
         return cursor.rowcount
 
-    def list(self) -> list[Bean]:
-        return beans(self.conn.execute("SELECT * FROM beans"))
+    def list(self, types=None, statuses=None, parent_id=None) -> list[Bean]:
+        sql = "SELECT * FROM beans"
+        params = []
+        clauses = []
+        if types:
+            placeholders = ",".join("?" for _ in types)
+            clauses.append(f"type IN ({placeholders})")
+            params.extend(types)
+        if statuses:
+            placeholders = ",".join("?" for _ in statuses)
+            clauses.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+        if parent_id:
+            clauses.append("parent_id = ?")
+            params.append(parent_id)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        return beans(self.conn.execute(sql, params))
 
     def search(self, query) -> list[Bean]:
         pattern = f"%{query}%"
@@ -218,8 +234,8 @@ class BeanStore:
         result["by_assignee"] = dict(cursor.fetchall())
         return result
 
-    def ready(self) -> list[Bean]:
-        return beans(self.conn.execute("""
+    def ready(self, assignee=None, unassigned=False, parent_id=None) -> list[Bean]:
+        sql = """
             WITH RECURSIVE
             blocked_by_deps(id) AS (
                 SELECT d.to_id
@@ -242,8 +258,18 @@ class BeanStore:
             WHERE status != 'closed'
               AND id NOT IN (SELECT id FROM blocked_by_deps)
               AND id NOT IN (SELECT id FROM blocked_by_children)
-            ORDER BY priority
-        """))
+        """
+        params: list = []
+        if assignee is not None:
+            sql += "  AND assignee = ?\n"
+            params.append(assignee)
+        elif unassigned:
+            sql += "  AND assignee IS NULL\n"
+        if parent_id:
+            sql += "  AND parent_id = ?\n"
+            params.append(parent_id)
+        sql += "  ORDER BY priority"
+        return beans(self.conn.execute(sql, params))
 
 
 class DepStore:
@@ -351,14 +377,14 @@ class Store:
     def delete(self, bean_id) -> int:
         return self.bean.delete(bean_id)
 
-    def list(self) -> list[Bean]:
-        return self.bean.list()
+    def list(self, types=None, statuses=None, parent_id=None) -> list[Bean]:
+        return self.bean.list(types=types, statuses=statuses, parent_id=parent_id)
 
     def list_by_assignee(self, actor) -> list[Bean]:
         return self.bean.list_by_assignee(actor)
 
-    def ready(self) -> list[Bean]:
-        return self.bean.ready()
+    def ready(self, assignee=None, unassigned=False, parent_id=None) -> list[Bean]:
+        return self.bean.ready(assignee=assignee, unassigned=unassigned, parent_id=parent_id)
 
     def search(self, query) -> list[Bean]:
         return self.bean.search(query)

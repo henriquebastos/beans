@@ -49,6 +49,8 @@ class TestCommandWiring:
         exit_code, data = jcli(f"--json show {created['id']}")
         assert exit_code == 0
         assert data["id"] == created["id"]
+        assert data["blocked_by"] == []
+        assert data["blocks"] == []
 
     def test_update(self, jcli):
         _, created = jcli('--json create "Old title"')
@@ -98,6 +100,20 @@ class TestCommandWiring:
         assert exit_code == 0
         assert len(data) == 1
 
+    def test_create_with_priority(self, jcli):
+        exit_code, data = jcli('--json create "Urgent" --priority 0')
+        assert exit_code == 0
+        assert data["priority"] == 0
+
+    def test_create_default_priority(self, jcli):
+        exit_code, data = jcli('--json create "Normal"')
+        assert exit_code == 0
+        assert data["priority"] == 2
+
+    def test_create_invalid_priority(self, cli):
+        exit_code, _ = cli('create "Bad" --priority 5')
+        assert exit_code != 0
+
     def test_search_no_matches(self, jcli):
         jcli('--json create "Fix auth"')
         exit_code, data = jcli("--json search deploy")
@@ -138,6 +154,74 @@ class TestReleaseArgParsing:
         _, created = jcli('--json create "Fix auth"')
         exit_code, _ = jcli(f"--json release {created['id']} --mine --actor alice")
         assert exit_code != 0
+
+
+class TestReopenViaCli:
+    """'beans update --status open' on closed bean clears closed_at/close_reason."""
+
+    def test_update_status_open_clears_closed_fields(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        jcli(f"--json close {bean['id']} --reason Done")
+        exit_code, data = jcli(f"--json update {bean['id']} --status open")
+        assert exit_code == 0
+        assert data["status"] == "open"
+        assert data["closed_at"] is None
+        assert data["close_reason"] is None
+
+    def test_update_status_in_progress_clears_closed_fields(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        jcli(f"--json close {bean['id']}")
+        exit_code, data = jcli(f"--json update {bean['id']} --status in_progress")
+        assert exit_code == 0
+        assert data["status"] == "in_progress"
+        assert data["closed_at"] is None
+
+    def test_update_non_closed_bean_status_unchanged(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        exit_code, data = jcli(f"--json update {bean['id']} --status in_progress")
+        assert exit_code == 0
+        assert data["status"] == "in_progress"
+        assert data["closed_at"] is None
+
+
+class TestListFilters:
+    """'beans list' supports --type and --status filters."""
+
+    def test_list_filter_by_type(self, jcli):
+        jcli('--json create "Task" --type task')
+        jcli('--json create "Epic" --type epic')
+        exit_code, data = jcli("--json list --type epic")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["type"] == "epic"
+
+    def test_list_filter_by_status(self, jcli):
+        _, bean = jcli('--json create "Task A"')
+        jcli('--json create "Task B"')
+        jcli(f"--json close {bean['id']}")
+        exit_code, data = jcli("--json list --status open")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["status"] == "open"
+
+    def test_list_filter_comma_separated(self, jcli):
+        jcli('--json create "Task" --type task')
+        jcli('--json create "Epic" --type epic')
+        jcli('--json create "Bug" --type bug')
+        exit_code, data = jcli("--json list --type task,epic")
+        assert exit_code == 0
+        assert len(data) == 2
+
+    def test_list_filter_type_and_status(self, jcli):
+        jcli('--json create "Task Open" --type task')
+        jcli('--json create "Epic Open" --type epic')
+        _, closed = jcli('--json create "Task Closed" --type task')
+        jcli(f"--json close {closed['id']}")
+        exit_code, data = jcli("--json list --type task --status open")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["type"] == "task"
+        assert data[0]["status"] == "open"
 
 
 class TestHumanOutput:
@@ -399,6 +483,32 @@ class TestRebuildCommand:
         assert data["title"] == "Updated"
 
 
+class TestReadyFilters:
+    """'beans ready' supports --assignee and --unassigned flags."""
+
+    def test_ready_assignee_filter(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        jcli('--json create "Task B"')
+        jcli(f"--json claim {a['id']} --actor alice")
+        exit_code, data = jcli("--json ready --assignee alice")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["assignee"] == "alice"
+
+    def test_ready_unassigned_filter(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json claim {a['id']} --actor alice")
+        exit_code, data = jcli("--json ready --unassigned")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["id"] == b["id"]
+
+    def test_ready_assignee_and_unassigned_mutually_exclusive(self, jcli):
+        exit_code, _ = jcli("--json ready --assignee alice --unassigned")
+        assert exit_code != 0
+
+
 class TestStatsCommand:
     """'beans stats' outputs aggregate counts."""
 
@@ -510,6 +620,70 @@ class TestConfigCommand:
         assert "alice" in output
 
 
+class TestCreateWithDeps:
+    """'beans create --dep' creates inline dependencies."""
+
+    def test_create_with_dep(self, jcli):
+        _, blocker = jcli('--json create "Blocker"')
+        exit_code, bean = jcli(f'--json create "Blocked" --dep {blocker["id"]}')
+        assert exit_code == 0
+        _, ready = jcli("--json ready")
+        ready_ids = [b["id"] for b in ready]
+        assert blocker["id"] in ready_ids
+        assert bean["id"] not in ready_ids
+
+    def test_create_with_multiple_deps(self, jcli):
+        _, a = jcli('--json create "Dep A"')
+        _, b = jcli('--json create "Dep B"')
+        exit_code, bean = jcli(f'--json create "Blocked" --dep {a["id"]} --dep {b["id"]}')
+        assert exit_code == 0
+        _, ready = jcli("--json ready")
+        ready_ids = [b["id"] for b in ready]
+        assert bean["id"] not in ready_ids
+
+
+class TestCyclicDepCli:
+    """CLI rejects circular dependencies with proper error."""
+
+    def test_self_dep_error(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        exit_code, data = jcli(f"--json dep add {a['id']} {a['id']}")
+        assert exit_code != 0
+        assert "cycle" in data["message"]
+
+    def test_circular_dep_error(self, jcli):
+        _, a = jcli('--json create "Task A"')
+        _, b = jcli('--json create "Task B"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+        exit_code, data = jcli(f"--json dep add {b['id']} {a['id']}")
+        assert exit_code != 0
+        assert "cycle" in data["message"]
+
+
+class TestCloseChildrenGuardCli:
+    """CLI guards against closing beans with open children."""
+
+    def test_close_with_children_error(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task" --parent {parent["id"]}')
+        exit_code, data = jcli(f"--json close {parent['id']}")
+        assert exit_code != 0
+        assert "open" in data["message"]
+
+    def test_close_with_children_force(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task" --parent {parent["id"]}')
+        exit_code, data = jcli(f"--json close {parent['id']} --force")
+        assert exit_code == 0
+        assert data["status"] == "closed"
+
+    def test_close_no_children(self, jcli):
+        _, bean = jcli('--json create "Task"')
+        exit_code, data = jcli(f"--json close {bean['id']}")
+        assert exit_code == 0
+        assert data["status"] == "closed"
+
+
 class TestRecipeCommand:
     """'beans recipe <client>' outputs agent-specific instructions."""
 
@@ -545,3 +719,165 @@ class TestRecipeCommand:
         assert "claude" in lines
         assert "gpt" in lines
         assert "generic" in lines
+
+
+class TestShowWithDeps:
+    """'beans --json show' includes blocked_by and blocks arrays."""
+
+    def test_show_json_includes_deps(self, jcli):
+        _, a = jcli('--json create "Blocker"')
+        _, b = jcli('--json create "Blocked"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+
+        exit_code, data = jcli(f"--json show {b['id']}")
+        assert exit_code == 0
+        assert data["blocked_by"] == [a["id"]]
+        assert data["blocks"] == []
+
+    def test_show_json_blocks_field(self, jcli):
+        _, a = jcli('--json create "Blocker"')
+        _, b = jcli('--json create "Blocked"')
+        jcli(f"--json dep add {a['id']} {b['id']}")
+
+        exit_code, data = jcli(f"--json show {a['id']}")
+        assert exit_code == 0
+        assert data["blocked_by"] == []
+        assert data["blocks"] == [b["id"]]
+
+    def test_show_json_no_deps_empty_arrays(self, jcli):
+        _, bean = jcli('--json create "Standalone"')
+        exit_code, data = jcli(f"--json show {bean['id']}")
+        assert exit_code == 0
+        assert data["blocked_by"] == []
+        assert data["blocks"] == []
+
+    def test_show_json_multiple_deps(self, jcli):
+        _, a = jcli('--json create "A"')
+        _, b = jcli('--json create "B"')
+        _, c = jcli('--json create "C"')
+        jcli(f"--json dep add {a['id']} {c['id']}")
+        jcli(f"--json dep add {b['id']} {c['id']}")
+
+        exit_code, data = jcli(f"--json show {c['id']}")
+        assert exit_code == 0
+        assert set(data["blocked_by"]) == {a["id"], b["id"]}
+        assert data["blocks"] == []
+
+    def test_show_text_mode_unchanged(self, cli, jcli):
+        _, bean = jcli('--json create "Task"')
+        exit_code, output = cli(f"show {bean['id']}")
+        assert exit_code == 0
+        assert "blocked_by" not in output
+
+
+class TestParentFilter:
+    """'beans list' and 'beans ready' support --parent filter."""
+
+    def test_list_parent_filter(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        exit_code, data = jcli(f"--json list --parent {parent['id']}")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]
+
+    def test_ready_parent_filter(self, jcli):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        exit_code, data = jcli(f"--json ready --parent {parent['id']}")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]
+
+
+class TestMagicBeansParentId:
+    """MAGIC_BEANS_PARENT_ID env var scopes create, list, and ready."""
+
+    def test_create_uses_env_parent(self, jcli, monkeypatch, dbfile):
+        _, parent = jcli('--json create "Epic" --type epic')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", parent["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env('--json create "Task"')
+        assert exit_code == 0
+        assert data["parent_id"] == parent["id"]
+
+    def test_create_explicit_parent_overrides_env(self, jcli, monkeypatch, dbfile):
+        _, epic1 = jcli('--json create "Epic 1" --type epic')
+        _, epic2 = jcli('--json create "Epic 2" --type epic')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", epic1["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env(f'--json create "Task" --parent {epic2["id"]}')
+        assert exit_code == 0
+        assert data["parent_id"] == epic2["id"]
+
+    def test_list_scoped_by_env_parent(self, jcli, monkeypatch, dbfile):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", parent["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env("--json list")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]
+
+    def test_create_with_nonexistent_parent_errors(self, jcli):
+        exit_code, data = jcli('--json create "Bad" --parent bean-00000000')
+        assert exit_code != 0
+        assert "does not exist" in data["message"]
+
+    def test_env_parent_nonexistent_errors(self, jcli, monkeypatch, dbfile):
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", "bean-00000000")
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            import json as json_mod
+            data = json_mod.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env('--json create "Bad"')
+        assert exit_code != 0
+        assert "does not exist" in data["message"]
+
+    def test_ready_scoped_by_env_parent(self, jcli, monkeypatch, dbfile):
+        _, parent = jcli('--json create "Epic" --type epic')
+        jcli(f'--json create "Task 1" --parent {parent["id"]}')
+        jcli('--json create "Other"')
+        monkeypatch.setenv("MAGIC_BEANS_PARENT_ID", parent["id"])
+
+        runner = CliRunner()
+
+        def jcli_env(cmd):
+            result = runner.invoke(app, ["--db", dbfile, *shlex.split(cmd)])
+            data = json.loads(result.output) if result.output.strip() else None
+            return result.exit_code, data
+
+        exit_code, data = jcli_env("--json ready")
+        assert exit_code == 0
+        assert len(data) == 1
+        assert data[0]["parent_id"] == parent["id"]
