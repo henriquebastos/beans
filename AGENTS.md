@@ -328,8 +328,17 @@ uv run beans dep add <blocker-id> <blocked-id>
 
 ### Bean-first rule
 
-Every task MUST become a bean before any code or research begins. No exceptions.
+Every deliverable product or code task MUST become a bean before any code or research begins.
 If you discover work mid-task, create a bean for it before starting.
+
+Exceptions:
+- operational chores that do not change product behavior
+- git/history cleanup
+- release administration
+- external repository maintenance (for example tap repos, packaging metadata, or CI fixes outside this repo)
+- one-off local cleanup explicitly requested by the user
+
+When a task is ambiguous, ask before creating a bean.
 
 ### Bean lifecycle
 
