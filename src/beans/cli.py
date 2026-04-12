@@ -122,7 +122,7 @@ def get_store(cfg: Config, db_name=DB_NAME) -> Store:
         try:
             db_path = str(find_beans_dir() / db_name)
         except FileNotFoundError:
-            db_path = db_name
+            error(cfg, FileNotFoundError("No beans project found. Did you run 'beans init'?"))
     return Store.from_path(db_path, dry_run=cfg.dry_run)
 
 
