@@ -194,3 +194,10 @@ class TestProjectDiscovery:
 
         _, data = jcli("list")
         assert len(data) == 0
+
+    def test_create_without_init_fails_with_helpful_message(self, project_dir, jcli):
+        exit_code, data = jcli("create", "Fix auth")
+
+        assert exit_code == 1
+        assert "beans init" in data["message"]
+        assert not (project_dir / "beans.db").exists()
