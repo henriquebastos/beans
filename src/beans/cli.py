@@ -72,7 +72,9 @@ def main(
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
-    fields: Annotated[str | None, typer.Option("--fields", help="Comma-separated list of fields to include")] = None,
+    fields: Annotated[
+        str | None, typer.Option("--fields", help="Comma-separated list of fields to include (only with --json)")
+    ] = None,
 ):
     ctx.obj = Config(db=db, json=json_output, dry_run=dry_run, fields=fields.split(",") if fields else None)
 
