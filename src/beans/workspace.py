@@ -3,6 +3,7 @@ import importlib.resources
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 # Internal imports
@@ -152,3 +153,36 @@ def detect_identifier(cwd) -> str:
 
 def detect_name(identifier) -> str:
     return identifier.rstrip("/").rsplit("/", 1)[-1]
+
+
+def migrate_project(
+    cwd=None,
+    name=None,
+    data_base=None,
+    config_file=None,
+    db_name=DB_NAME,
+) -> Path:
+    """Migrate existing .beans/ to registry. Returns the new store dir path."""
+    base = Path(cwd) if cwd else Path.cwd()
+    try:
+        old_dir = walk_beans_dir(start=base)
+    except FileNotFoundError:
+        raise FileNotFoundError("No .beans/ directory found. Nothing to migrate.")
+
+    identifier = detect_identifier(base)
+    project_name = name or detect_name(identifier)
+    store_path = (data_base or data_dir()) / project_name
+    cfg_path = config_file or config_path()
+
+    # Copy files from old to new
+    store_path.mkdir(parents=True, exist_ok=True)
+    for item in old_dir.iterdir():
+        dest = store_path / item.name
+        if item.is_file():
+            shutil.copy2(str(item), str(dest))
+
+    # Register
+    project = Project(name=project_name, identifier=identifier, store=str(store_path))
+    add_project(project, cfg_path)
+
+    return store_path

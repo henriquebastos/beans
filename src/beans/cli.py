@@ -3,6 +3,7 @@ from datetime import datetime
 import importlib.resources
 import json
 import os
+from pathlib import Path
 from typing import Annotated, NamedTuple
 
 from pydantic import ValidationError
@@ -41,7 +42,7 @@ from beans.models import (
     OpenChildrenError,
 )
 from beans.store import Store
-from beans.workspace import DB_NAME, find_beans_dir, init_project_local
+from beans.workspace import DB_NAME, find_beans_dir, init_project, init_project_local, migrate_project, walk_beans_dir
 
 app = typer.Typer()
 dep_app = typer.Typer()
@@ -128,11 +129,66 @@ def get_store(cfg: Config, db_name=DB_NAME) -> Store:
     return Store.from_path(db_path, dry_run=cfg.dry_run)
 
 
+ENV_BEANS_DATA_DIR = "BEANS_DATA_DIR"
+ENV_BEANS_CONFIG_FILE = "BEANS_CONFIG_FILE"
+
+
+def resolve_data_base() -> Path | None:
+    val = os.environ.get(ENV_BEANS_DATA_DIR)
+    return Path(val) if val else None
+
+
+def resolve_config_file() -> Path | None:
+    val = os.environ.get(ENV_BEANS_CONFIG_FILE)
+    return Path(val) if val else None
+
+
 @app.command()
-def init():
-    """Initialize a beans project in the current directory."""
-    beans_dir = init_project_local()
-    typer.echo(f"Initialized beans project in {beans_dir}")
+def init(
+    name: Annotated[str | None, typer.Option(help="Project name for registry")] = None,
+    dir: Annotated[bool, typer.Option("--dir", help="Create local .beans/ directory instead of registry")] = False,
+    migrate: Annotated[bool, typer.Option("--migrate", help="Migrate existing .beans/ to registry")] = False,
+):
+    """Initialize a beans project. Default: registry. Use --dir for local .beans/."""
+    if dir and migrate:
+        typer.echo("Cannot use --dir and --migrate together", err=True)
+        raise typer.Exit(code=1)
+
+    if dir:
+        beans_dir = init_project_local()
+        typer.echo(f"Initialized beans project in {beans_dir}")
+        return
+
+    if migrate:
+        try:
+            store_dir = migrate_project(
+                name=name,
+                data_base=resolve_data_base(),
+                config_file=resolve_config_file(),
+            )
+        except FileNotFoundError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1) from e
+        try:
+            old_dir = walk_beans_dir()
+        except FileNotFoundError:
+            old_dir = None
+        if old_dir:
+            delete = typer.confirm(f"Delete old {old_dir}?", default=False)
+            if delete:
+                import shutil
+
+                shutil.rmtree(old_dir)
+                typer.echo(f"Deleted {old_dir}")
+        typer.echo(f"Migrated to {store_dir}")
+        return
+
+    store_dir = init_project(
+        name=name,
+        data_base=resolve_data_base(),
+        config_file=resolve_config_file(),
+    )
+    typer.echo(f"Initialized beans project in {store_dir}")
 
 
 @app.command()

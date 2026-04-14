@@ -23,8 +23,8 @@ def project_dir(tmp_path, monkeypatch):
 def cli():
     runner = CliRunner()
 
-    def invoke(*args):
-        return runner.invoke(app, [*args])
+    def invoke(*args, input=None):
+        return runner.invoke(app, [*args], input=input)
 
     return invoke
 
@@ -39,73 +39,102 @@ def jcli(cli):
     return invoke
 
 
-class TestInitCommand:
-    """'beans init' creates .beans/ directory with db and AGENTS.md."""
+class TestInitDirCommand:
+    """'beans init --dir' creates .beans/ directory with db and AGENTS.md (backward compat)."""
 
-    def test_init_creates_beans_dir(self, project_dir, cli):
-        result = cli("init")
+    def test_init_dir_creates_beans_dir(self, project_dir, cli):
+        result = cli("init", "--dir")
 
         assert result.exit_code == 0
         assert (project_dir / ".beans").is_dir()
 
-    def test_init_creates_db(self, project_dir, cli):
-        cli("init")
+    def test_init_dir_creates_db(self, project_dir, cli):
+        cli("init", "--dir")
 
         assert (project_dir / ".beans" / "beans.db").exists()
 
-    def test_init_creates_agents_md(self, project_dir, cli):
-        cli("init")
+    def test_init_dir_creates_agents_md(self, project_dir, cli):
+        cli("init", "--dir")
 
         agents_file = project_dir / ".beans" / "AGENTS.md"
         assert agents_file.exists()
         assert "beans" in agents_file.read_text().lower()
 
-    def test_init_creates_gitignore(self, project_dir, cli):
-        cli("init")
+    def test_init_dir_creates_gitignore(self, project_dir, cli):
+        cli("init", "--dir")
 
         gitignore = project_dir / ".beans" / ".gitignore"
         assert gitignore.exists()
         assert gitignore.read_text() == "*\n!.gitignore\n!AGENTS.md\n!journal.jsonl\n"
 
-    def test_init_idempotent(self, project_dir, cli):
-        cli("init")
-        result = cli("init")
+    def test_init_dir_idempotent(self, project_dir, cli):
+        cli("init", "--dir")
+        result = cli("init", "--dir")
 
         assert result.exit_code == 0
 
-    def test_init_does_not_overwrite_existing_gitignore(self, project_dir, cli):
+    def test_init_dir_does_not_overwrite_existing_gitignore(self, project_dir, cli):
         beans_dir = project_dir / ".beans"
         beans_dir.mkdir()
         gitignore = beans_dir / ".gitignore"
         gitignore.write_text("custom rules")
 
-        cli("init")
+        cli("init", "--dir")
 
         assert gitignore.read_text() == "custom rules"
 
-    def test_init_does_not_overwrite_existing_agents_md(self, project_dir, cli):
+    def test_init_dir_does_not_overwrite_existing_agents_md(self, project_dir, cli):
         beans_dir = project_dir / ".beans"
         beans_dir.mkdir()
         agents_file = beans_dir / "AGENTS.md"
         agents_file.write_text("custom content")
 
-        cli("init")
+        cli("init", "--dir")
 
         assert agents_file.read_text() == "custom content"
 
-    def test_init_uses_env_override(self, tmp_path, monkeypatch):
+    def test_init_dir_uses_env_override(self, tmp_path, monkeypatch):
         custom = tmp_path / "custom-beans"
         monkeypatch.setenv("MAGIC_BEANS_DIR", str(custom))
         monkeypatch.chdir(tmp_path)
 
         runner = CliRunner()
-        result = runner.invoke(app, ["init"])
+        result = runner.invoke(app, ["init", "--dir"])
 
         assert result.exit_code == 0
         assert custom.is_dir()
         assert (custom / "beans.db").exists()
         assert (custom / "AGENTS.md").exists()
         assert not (tmp_path / ".beans").exists()
+
+
+class TestInitRegistryCommand:
+    """'beans init' (default) creates a registry entry and store in data dir."""
+
+    def test_init_creates_registry_entry(self, project_dir, cli, monkeypatch, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        result = cli("init")
+
+        assert result.exit_code == 0
+        projects = load_registry(config)
+        assert len(projects) == 1
+        assert not (project_dir / ".beans").exists()
+
+    def test_init_with_name(self, project_dir, cli, monkeypatch, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        result = cli("init", "--name", "myblog")
+
+        assert result.exit_code == 0
+        projects = load_registry(config)
+        assert projects[0].name == "myblog"
 
 
 class TestInitProjectLocal:
@@ -257,11 +286,58 @@ class TestFindBeansDir:
         assert result == project_dir / ".beans"
 
 
+class TestMigrateCommand:
+    """'beans init --migrate' migrates .beans/ to registry."""
+
+    def test_migrate_copies_db(self, project_dir, cli, monkeypatch, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        # Create local .beans/ with some data
+        cli("init", "--dir")
+        cli("create", "Test bean")
+
+        result = cli("init", "--migrate", input="n\n")
+
+        assert result.exit_code == 0
+        projects = load_registry(config)
+        assert len(projects) == 1
+        # Old .beans/ still exists (user said no to delete)
+        assert (project_dir / ".beans").exists()
+
+    def test_migrate_with_name(self, project_dir, cli, monkeypatch, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        cli("init", "--dir")
+
+        result = cli("init", "--migrate", "--name", "myblog", input="n\n")
+
+        assert result.exit_code == 0
+        projects = load_registry(config)
+        assert projects[0].name == "myblog"
+
+    def test_migrate_fails_without_existing_beans(self, project_dir, cli, monkeypatch, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        result = cli("init", "--migrate")
+
+        assert result.exit_code == 1
+        assert "no .beans" in result.output.lower() or "not found" in result.output.lower()
+
+
 class TestProjectDiscovery:
     """CLI commands use project discovery to find .beans/beans.db."""
 
     def test_create_uses_discovered_db(self, project_dir, cli, jcli):
-        cli("init")
+        cli("init", "--dir")
 
         exit_code, _ = jcli("create", "Fix auth")
         assert exit_code == 0
@@ -271,7 +347,7 @@ class TestProjectDiscovery:
         assert data[0]["title"] == "Fix auth"
 
     def test_db_flag_overrides_discovery(self, project_dir, cli, jcli):
-        cli("init")
+        cli("init", "--dir")
 
         db_path = str(project_dir / "custom.db")
         cli("--db", db_path, "--json", "create", "Custom")
