@@ -2,6 +2,8 @@
 import importlib.resources
 import os
 from pathlib import Path
+import re
+import subprocess
 
 # Internal imports
 from beans.store import Store
@@ -68,3 +70,39 @@ def init_project(
         gitignore_file.write_text(GITIGNORE_CONTENT)
 
     return beans_dir
+
+
+SSH_PATTERN = re.compile(r"^[\w.-]+@([\w.-]+):(.*?)(?:\.git)?/?$")
+HTTPS_PATTERN = re.compile(r"^https?://([\w.-]+)/(.*?)(?:\.git)?/?$")
+
+
+def normalize_git_remote(url, ssh_pattern=SSH_PATTERN, https_pattern=HTTPS_PATTERN) -> str:
+    if m := ssh_pattern.match(url):
+        return f"{m.group(1)}/{m.group(2)}"
+    if m := https_pattern.match(url):
+        return f"{m.group(1)}/{m.group(2)}"
+    return url
+
+
+def git_remote_url(cwd) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            cwd=cwd, capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+def detect_identifier(cwd) -> str:
+    cwd = Path(cwd)
+    if url := git_remote_url(cwd):
+        return normalize_git_remote(url)
+    return str(cwd)
+
+
+def detect_name(identifier) -> str:
+    return identifier.rstrip("/").rsplit("/", 1)[-1]
