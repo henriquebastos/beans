@@ -160,40 +160,11 @@ def resolve_config_file() -> Path | None:
 def init(
     name: Annotated[str | None, typer.Option(help="Project name for registry")] = None,
     dir: Annotated[bool, typer.Option("--dir", help="Create local .beans/ directory instead of registry")] = False,
-    migrate: Annotated[bool, typer.Option("--migrate", help="Migrate existing .beans/ to registry")] = False,
 ):
     """Initialize a beans project. Default: registry. Use --dir for local .beans/."""
-    if dir and migrate:
-        typer.echo("Cannot use --dir and --migrate together", err=True)
-        raise typer.Exit(code=1)
-
     if dir:
         beans_dir = init_project_local()
         typer.echo(f"Initialized beans project in {beans_dir}")
-        return
-
-    if migrate:
-        try:
-            store_dir = migrate_project(
-                name=name,
-                data_base=resolve_data_base(),
-                config_file=resolve_config_file(),
-            )
-        except FileNotFoundError as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1) from e
-        try:
-            old_dir = walk_beans_dir()
-        except FileNotFoundError:
-            old_dir = None
-        if old_dir:
-            delete = typer.confirm(f"Delete old {old_dir}?", default=False)
-            if delete:
-                import shutil
-
-                shutil.rmtree(old_dir)
-                typer.echo(f"Deleted {old_dir}")
-        typer.echo(f"Migrated to {store_dir}")
         return
 
     store_dir = init_project(
@@ -202,6 +173,34 @@ def init(
         config_file=resolve_config_file(),
     )
     typer.echo(f"Initialized beans project in {store_dir}")
+
+
+@app.command()
+def migrate(
+    name: Annotated[str | None, typer.Option(help="Project name for registry")] = None,
+):
+    """Migrate existing .beans/ to the project registry."""
+    try:
+        store_dir = migrate_project(
+            name=name,
+            data_base=resolve_data_base(),
+            config_file=resolve_config_file(),
+        )
+    except FileNotFoundError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    try:
+        old_dir = walk_beans_dir()
+    except FileNotFoundError:
+        old_dir = None
+    if old_dir:
+        delete = typer.confirm(f"Delete old {old_dir}?", default=False)
+        if delete:
+            import shutil
+
+            shutil.rmtree(old_dir)
+            typer.echo(f"Deleted {old_dir}")
+    typer.echo(f"Migrated to {store_dir}")
 
 
 @app.command()

@@ -287,7 +287,7 @@ class TestFindBeansDir:
 
 
 class TestMigrateCommand:
-    """'beans init --migrate' migrates .beans/ to registry."""
+    """'beans migrate' migrates .beans/ to registry."""
 
     def test_migrate_copies_db(self, project_dir, cli, monkeypatch, tmp_path):
         data = tmp_path / "data"
@@ -299,7 +299,7 @@ class TestMigrateCommand:
         cli("init", "--dir")
         cli("create", "Test bean")
 
-        result = cli("init", "--migrate", input="n\n")
+        result = cli("migrate", input="n\n")
 
         assert result.exit_code == 0
         projects = load_registry(config)
@@ -315,7 +315,7 @@ class TestMigrateCommand:
 
         cli("init", "--dir")
 
-        result = cli("init", "--migrate", "--name", "myblog", input="n\n")
+        result = cli("migrate", "--name", "myblog", input="n\n")
 
         assert result.exit_code == 0
         projects = load_registry(config)
@@ -327,7 +327,7 @@ class TestMigrateCommand:
         monkeypatch.setenv("BEANS_DATA_DIR", str(data))
         monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
 
-        result = cli("init", "--migrate")
+        result = cli("migrate")
 
         assert result.exit_code == 1
         assert "no .beans" in result.output.lower() or "not found" in result.output.lower()
