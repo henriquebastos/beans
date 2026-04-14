@@ -19,6 +19,31 @@ class Project(BaseModel, frozen=True):
     store: str
 
 
+class Config(BaseModel):
+    projects: list[Project] = []
+
+    def add_project(self, project: Project) -> None:
+        self.projects = [p for p in self.projects if p.identifier != project.identifier]
+        self.projects.append(project)
+
+    def remove_project(self, name) -> bool:
+        before = len(self.projects)
+        self.projects = [p for p in self.projects if p.name != name]
+        return len(self.projects) < before
+
+    def find_by_name(self, name) -> Project | None:
+        for p in self.projects:
+            if p.name == name:
+                return p
+        return None
+
+    def find_by_identifier(self, identifier) -> Project | None:
+        for p in self.projects:
+            if p.identifier == identifier:
+                return p
+        return None
+
+
 def config_dir(config_dir_name=CONFIG_DIR, default_xdg=DEFAULT_XDG_CONFIG) -> Path:
     xdg = os.environ.get("XDG_CONFIG_HOME", Path.home() / default_xdg)
     return Path(xdg) / config_dir_name
@@ -33,53 +58,27 @@ def data_dir(data_dir_name=DATA_DIR, default_xdg=DEFAULT_XDG_DATA) -> Path:
     return Path(xdg) / data_dir_name
 
 
-def load_config(path) -> dict:
+def load_config(path) -> Config:
     path = Path(path)
     if not path.exists():
-        return {}
+        return Config()
     try:
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
-        return {}
+        return Config()
+    projects = [Project(**p) for p in data.get("projects", [])]
+    return Config(projects=projects)
 
 
-def load_registry(path) -> list[Project]:
-    config = load_config(path)
-    return [Project(**p) for p in config.get("projects", [])]
-
-
-def save_registry(projects: list[Project], path) -> None:
+def save_config(config: Config, path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    config = load_config(path)
-    config["projects"] = [p.model_dump() for p in projects]
-    path.write_text(json.dumps(config, indent=2) + "\n")
-
-
-def add_project(project: Project, path) -> None:
-    projects = [p for p in load_registry(path) if p.identifier != project.identifier]
-    projects.append(project)
-    save_registry(projects, path)
-
-
-def remove_project(name, path) -> bool:
-    projects = load_registry(path)
-    filtered = [p for p in projects if p.name != name]
-    if len(filtered) == len(projects):
-        return False
-    save_registry(filtered, path)
-    return True
-
-
-def find_project_by_name(name, path) -> Project | None:
-    for p in load_registry(path):
-        if p.name == name:
-            return p
-    return None
-
-
-def find_project_by_identifier(identifier, path) -> Project | None:
-    for p in load_registry(path):
-        if p.identifier == identifier:
-            return p
-    return None
+    # Preserve non-beans keys in existing file
+    raw = {}
+    if path.exists():
+        try:
+            raw = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    raw["projects"] = [p.model_dump() for p in config.projects]
+    path.write_text(json.dumps(raw, indent=2) + "\n")

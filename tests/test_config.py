@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 # Internal imports
-from beans.config import CONFIG_FILE, config_path, load_config
+from beans.config import CONFIG_FILE, Config, config_path, load_config
 
 
 @pytest.fixture()
@@ -31,21 +31,26 @@ class TestConfigPath:
 
 
 class TestLoadConfig:
-    """load_config() reads JSON from a config file path."""
+    """load_config() reads config from a file path."""
 
-    def test_returns_empty_dict_when_no_file(self, config_dir):
-        assert load_config(config_dir / CONFIG_FILE) == {}
+    def test_returns_empty_config_when_no_file(self, config_dir):
+        cfg = load_config(config_dir / CONFIG_FILE)
+        assert cfg == Config()
+        assert cfg.projects == []
 
     def test_reads_config_from_file(self, config_dir):
         config_dir.mkdir(parents=True)
         config_file = config_dir / CONFIG_FILE
-        config_file.write_text(json.dumps({"actor": "alice"}))
+        config_file.write_text(json.dumps({"projects": [{"name": "a", "identifier": "id-a", "store": "/a"}]}))
 
-        assert load_config(config_file) == {"actor": "alice"}
+        cfg = load_config(config_file)
+        assert len(cfg.projects) == 1
+        assert cfg.projects[0].name == "a"
 
-    def test_returns_empty_dict_on_invalid_json(self, config_dir):
+    def test_returns_empty_config_on_invalid_json(self, config_dir):
         config_dir.mkdir(parents=True)
         config_file = config_dir / CONFIG_FILE
         config_file.write_text("not json")
 
-        assert load_config(config_file) == {}
+        cfg = load_config(config_file)
+        assert cfg == Config()

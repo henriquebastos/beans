@@ -6,16 +6,7 @@ from pathlib import Path
 import pytest
 
 # Internal imports
-from beans.config import (
-    Project,
-    add_project,
-    data_dir,
-    find_project_by_identifier,
-    find_project_by_name,
-    load_registry,
-    remove_project,
-    save_registry,
-)
+from beans.config import Config, Project, data_dir, load_config, save_config
 
 
 class TestProject:
@@ -49,101 +40,99 @@ class TestDataDir:
         assert result == tmp_path / "custom" / "beans"
 
 
-class TestRegistry:
+class TestConfig:
     def test_load_empty_when_no_file(self, tmp_path):
         path = tmp_path / "config.json"
-        assert load_registry(path) == []
+        cfg = load_config(path)
+        assert cfg.projects == []
 
     def test_load_empty_when_no_projects_key(self, tmp_path):
         path = tmp_path / "config.json"
         path.write_text(json.dumps({"other": "stuff"}))
-        assert load_registry(path) == []
+        cfg = load_config(path)
+        assert cfg.projects == []
 
     def test_save_and_load_roundtrip(self, tmp_path):
         path = tmp_path / "config.json"
-        projects = [
+        cfg = Config(projects=[
             Project(name="a", identifier="github.com/x/a", store="/store/a"),
             Project(name="b", identifier="/home/user/b", store="/store/b"),
-        ]
-        save_registry(projects, path)
-        assert load_registry(path) == projects
+        ])
+        save_config(cfg, path)
+        assert load_config(path) == cfg
 
     def test_save_preserves_other_config(self, tmp_path):
         path = tmp_path / "config.json"
         path.write_text(json.dumps({"editor": "vim"}))
-        projects = [Project(name="a", identifier="id-a", store="/store/a")]
-        save_registry(projects, path)
+        cfg = Config(projects=[Project(name="a", identifier="id-a", store="/store/a")])
+        save_config(cfg, path)
         data = json.loads(path.read_text())
         assert data["editor"] == "vim"
         assert "projects" in data
 
     def test_save_creates_parent_dirs(self, tmp_path):
         path = tmp_path / "sub" / "dir" / "config.json"
-        save_registry([], path)
+        save_config(Config(), path)
         assert path.exists()
 
 
 class TestAddProject:
-    def test_add_project(self, tmp_path):
-        path = tmp_path / "config.json"
+    def test_add_project(self):
+        cfg = Config()
         p = Project(name="myblog", identifier="github.com/me/blog", store="/store/myblog")
-        add_project(p, path)
-        assert load_registry(path) == [p]
+        cfg.add_project(p)
+        assert cfg.projects == [p]
 
-    def test_add_project_replaces_same_identifier(self, tmp_path):
-        path = tmp_path / "config.json"
+    def test_add_project_replaces_same_identifier(self):
+        cfg = Config()
         p1 = Project(name="old", identifier="github.com/me/blog", store="/store/old")
         p2 = Project(name="new", identifier="github.com/me/blog", store="/store/new")
-        add_project(p1, path)
-        add_project(p2, path)
-        result = load_registry(path)
-        assert result == [p2]
+        cfg.add_project(p1)
+        cfg.add_project(p2)
+        assert cfg.projects == [p2]
 
-    def test_add_multiple_projects(self, tmp_path):
-        path = tmp_path / "config.json"
+    def test_add_multiple_projects(self):
+        cfg = Config()
         p1 = Project(name="a", identifier="id-a", store="/store/a")
         p2 = Project(name="b", identifier="id-b", store="/store/b")
-        add_project(p1, path)
-        add_project(p2, path)
-        assert load_registry(path) == [p1, p2]
+        cfg.add_project(p1)
+        cfg.add_project(p2)
+        assert cfg.projects == [p1, p2]
 
 
 class TestRemoveProject:
-    def test_remove_by_name(self, tmp_path):
-        path = tmp_path / "config.json"
+    def test_remove_by_name(self):
+        cfg = Config()
         p = Project(name="myblog", identifier="id-a", store="/store/a")
-        add_project(p, path)
-        assert remove_project("myblog", path) is True
-        assert load_registry(path) == []
+        cfg.add_project(p)
+        assert cfg.remove_project("myblog") is True
+        assert cfg.projects == []
 
-    def test_remove_nonexistent(self, tmp_path):
-        path = tmp_path / "config.json"
-        assert remove_project("nope", path) is False
+    def test_remove_nonexistent(self):
+        cfg = Config()
+        assert cfg.remove_project("nope") is False
 
 
 class TestFindProject:
     @pytest.fixture()
-    def registry(self, tmp_path):
-        path = tmp_path / "config.json"
-        projects = [
+    def cfg(self):
+        return Config(projects=[
             Project(name="myblog", identifier="github.com/me/blog", store="/store/myblog"),
             Project(name="work-api", identifier="/home/user/work/api", store="/store/work-api"),
-        ]
-        save_registry(projects, path)
-        return path
+        ])
 
-    def test_find_by_name(self, registry):
-        p = find_project_by_name("myblog", registry)
+    def test_find_by_name(self, cfg):
+        p = cfg.find_by_name("myblog")
         assert p is not None
         assert p.name == "myblog"
 
-    def test_find_by_name_not_found(self, registry):
-        assert find_project_by_name("nope", registry) is None
+    def test_find_by_name_not_found(self, cfg):
+        assert cfg.find_by_name("nope") is None
 
-    def test_find_by_identifier(self, registry):
-        p = find_project_by_identifier("github.com/me/blog", registry)
+    def test_find_by_identifier(self, cfg):
+        p = cfg.find_by_identifier("github.com/me/blog")
         assert p is not None
         assert p.name == "myblog"
 
-    def test_find_by_identifier_not_found(self, registry):
-        assert find_project_by_identifier("nope", registry) is None
+    def test_find_by_identifier_not_found(self, cfg):
+        assert cfg.find_by_identifier("nope") is None

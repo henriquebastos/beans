@@ -625,11 +625,13 @@ class TestConfigCommand:
         config_dir = tmp_path / ".config" / "beans"
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
         config_dir.mkdir(parents=True)
-        (config_dir / "config.json").write_text(json.dumps({"actor": "alice"}))
+        (config_dir / "config.json").write_text(
+            json.dumps({"projects": [{"name": "myblog", "identifier": "id", "store": "/s"}]})
+        )
 
         exit_code, output = cli("config")
         assert exit_code == 0
-        assert "alice" in output
+        assert "myblog" in output
 
 
 class TestCreateWithDeps:

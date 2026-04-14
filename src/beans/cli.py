@@ -507,8 +507,8 @@ def config():
     path = config_path()
     cfg = load_config(path)
     typer.echo(f"Config: {path}")
-    if cfg:
-        typer.echo(json.dumps(cfg, indent=2))
+    if cfg.projects:
+        typer.echo(cfg.model_dump_json(indent=2))
     else:
         typer.echo("No configuration set.")
 

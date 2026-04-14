@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 # Internal imports
 from beans.cli import app
-from beans.config import load_registry
+from beans.config import load_config
 from beans.workspace import find_beans_dir, init_project, init_project_local
 
 
@@ -120,7 +120,7 @@ class TestInitRegistryCommand:
         result = cli("init")
 
         assert result.exit_code == 0
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert len(projects) == 1
         assert not (project_dir / ".beans").exists()
 
@@ -133,7 +133,7 @@ class TestInitRegistryCommand:
         result = cli("init", "--name", "myblog")
 
         assert result.exit_code == 0
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert projects[0].name == "myblog"
 
 
@@ -170,7 +170,7 @@ class TestInitProjectRegistry:
         data = tmp_path / "data"
         config = tmp_path / "config" / "config.json"
         init_project(cwd=tmp_path, data_base=data, config_file=config)
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert len(projects) == 1
         assert projects[0].name == tmp_path.name
 
@@ -178,7 +178,7 @@ class TestInitProjectRegistry:
         data = tmp_path / "data"
         config = tmp_path / "config" / "config.json"
         init_project(cwd=tmp_path, name="myblog", data_base=data, config_file=config)
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert projects[0].name == "myblog"
 
     def test_init_idempotent_same_identifier(self, tmp_path):
@@ -186,7 +186,7 @@ class TestInitProjectRegistry:
         config = tmp_path / "config" / "config.json"
         init_project(cwd=tmp_path, data_base=data, config_file=config)
         init_project(cwd=tmp_path, data_base=data, config_file=config)
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert len(projects) == 1
 
     def test_init_does_not_create_local_beans_dir(self, tmp_path):
@@ -302,7 +302,7 @@ class TestMigrateCommand:
         result = cli("migrate", input="n\n")
 
         assert result.exit_code == 0
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert len(projects) == 1
         # Old .beans/ still exists (user said no to delete)
         assert (project_dir / ".beans").exists()
@@ -318,7 +318,7 @@ class TestMigrateCommand:
         result = cli("migrate", "--name", "myblog", input="n\n")
 
         assert result.exit_code == 0
-        projects = load_registry(config)
+        projects = load_config(config).projects
         assert projects[0].name == "myblog"
 
     def test_migrate_fails_without_existing_beans(self, project_dir, cli, monkeypatch, tmp_path):

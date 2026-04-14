@@ -7,15 +7,7 @@ import shutil
 import subprocess
 
 # Internal imports
-from beans.config import (
-    Project,
-    add_project,
-    config_path,
-    data_dir,
-    find_project_by_identifier,
-    find_project_by_name,
-    load_registry,
-)
+from beans.config import Project, config_path, data_dir, load_config, save_config
 from beans.store import Store
 
 DEFAULT_BEANS_DIR = ".beans"
@@ -47,16 +39,16 @@ def walk_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR) -> Path:
 
 def find_in_registry(start=None, config_file=None) -> Path | None:
     """Check project registry for a matching project. Returns store path or None."""
-    cfg_path = config_file or config_path()
+    cfg = load_config(config_file or config_path())
     cwd = Path(start) if start else Path.cwd()
     identifier = detect_identifier(cwd)
-    project = find_project_by_identifier(identifier, cfg_path)
+    project = cfg.find_by_identifier(identifier)
     if project:
         store = Path(project.store)
         if store.is_dir():
             return store
     # Also try matching cwd as path identifier
-    for p in load_registry(cfg_path):
+    for p in cfg.projects:
         if cwd == Path(p.identifier) or str(cwd).startswith(p.identifier + "/"):
             store = Path(p.store)
             if store.is_dir():
@@ -93,8 +85,8 @@ def resolve_db(
     if db:
         return Path(db)
     if project:
-        cfg_path = config_file or config_path()
-        p = find_project_by_name(project, cfg_path)
+        cfg = load_config(config_file or config_path())
+        p = cfg.find_by_name(project)
         if p is None:
             raise ProjectNotFoundError(f"Project '{project}' not found in registry")
         return Path(p.store) / db_name
@@ -138,8 +130,9 @@ def init_project(
     cfg_path = config_file or config_path()
 
     store_dir = setup_store_dir(store_path)
-    project = Project(name=project_name, identifier=identifier, store=str(store_dir))
-    add_project(project, cfg_path)
+    cfg = load_config(cfg_path)
+    cfg.add_project(Project(name=project_name, identifier=identifier, store=str(store_dir)))
+    save_config(cfg, cfg_path)
 
     return store_dir
 
@@ -219,7 +212,8 @@ def migrate_project(
             shutil.copy2(str(item), str(dest))
 
     # Register
-    project = Project(name=project_name, identifier=identifier, store=str(store_path))
-    add_project(project, cfg_path)
+    cfg = load_config(cfg_path)
+    cfg.add_project(Project(name=project_name, identifier=identifier, store=str(store_path)))
+    save_config(cfg, cfg_path)
 
     return store_path
