@@ -7,7 +7,8 @@ from typer.testing import CliRunner
 
 # Internal imports
 from beans.cli import app
-from beans.workspace import find_beans_dir, init_project
+from beans.config import load_registry
+from beans.workspace import find_beans_dir, init_project, init_project_local
 
 
 @pytest.fixture()
@@ -107,23 +108,62 @@ class TestInitCommand:
         assert not (tmp_path / ".beans").exists()
 
 
-class TestInitProject:
-    """init_project() can be directed without changing process cwd."""
+class TestInitProjectLocal:
+    """init_project_local() creates .beans/ in cwd (backward compat)."""
 
-    def test_init_project_uses_explicit_cwd(self, tmp_path):
-        beans_dir = init_project(cwd=tmp_path)
+    def test_init_local_creates_beans_dir(self, tmp_path):
+        beans_dir = init_project_local(cwd=tmp_path)
         assert beans_dir == tmp_path / ".beans"
         assert (beans_dir / "beans.db").exists()
         assert (beans_dir / "AGENTS.md").exists()
         assert (beans_dir / ".gitignore").exists()
 
-    def test_init_project_uses_env_override(self, tmp_path):
+    def test_init_local_uses_env_override(self, tmp_path):
         custom = tmp_path / "custom-beans"
-        beans_dir = init_project(cwd=tmp_path, env={"MAGIC_BEANS_DIR": str(custom)})
+        beans_dir = init_project_local(cwd=tmp_path, env={"MAGIC_BEANS_DIR": str(custom)})
         assert beans_dir == custom
         assert (custom / "beans.db").exists()
-        assert (custom / "AGENTS.md").exists()
-        assert (custom / ".gitignore").exists()
+        assert not (tmp_path / ".beans").exists()
+
+
+class TestInitProjectRegistry:
+    """init_project() creates a registry entry and store in XDG data dir."""
+
+    def test_init_creates_store_in_data_dir(self, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        store_dir = init_project(cwd=tmp_path, data_base=data, config_file=config)
+        assert store_dir.is_dir()
+        assert (store_dir / "beans.db").exists()
+        assert (store_dir / "AGENTS.md").exists()
+
+    def test_init_registers_project(self, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        init_project(cwd=tmp_path, data_base=data, config_file=config)
+        projects = load_registry(config)
+        assert len(projects) == 1
+        assert projects[0].name == tmp_path.name
+
+    def test_init_with_explicit_name(self, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        init_project(cwd=tmp_path, name="myblog", data_base=data, config_file=config)
+        projects = load_registry(config)
+        assert projects[0].name == "myblog"
+
+    def test_init_idempotent_same_identifier(self, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        init_project(cwd=tmp_path, data_base=data, config_file=config)
+        init_project(cwd=tmp_path, data_base=data, config_file=config)
+        projects = load_registry(config)
+        assert len(projects) == 1
+
+    def test_init_does_not_create_local_beans_dir(self, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        init_project(cwd=tmp_path, data_base=data, config_file=config)
         assert not (tmp_path / ".beans").exists()
 
 

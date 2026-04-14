@@ -41,7 +41,7 @@ from beans.models import (
     OpenChildrenError,
 )
 from beans.store import Store
-from beans.workspace import DB_NAME, find_beans_dir, init_project
+from beans.workspace import DB_NAME, find_beans_dir, init_project_local
 
 app = typer.Typer()
 dep_app = typer.Typer()
@@ -131,7 +131,7 @@ def get_store(cfg: Config, db_name=DB_NAME) -> Store:
 @app.command()
 def init():
     """Initialize a beans project in the current directory."""
-    beans_dir = init_project()
+    beans_dir = init_project_local()
     typer.echo(f"Initialized beans project in {beans_dir}")
 
 

@@ -6,6 +6,7 @@ import re
 import subprocess
 
 # Internal imports
+from beans.config import Project, add_project, config_path, data_dir
 from beans.store import Store
 
 DEFAULT_BEANS_DIR = ".beans"
@@ -44,18 +45,10 @@ def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=EN
     return walk_beans_dir(start=start, dirname=dirname)
 
 
-def init_project(
-    dirname=DEFAULT_BEANS_DIR,
-    db_name=DB_NAME,
-    agents_md=AGENTS_MD,
-    cwd=None,
-    env=os.environ,
-    var=ENV_BEANS_DIR,
-) -> Path:
-    """Initialize a beans project in the current directory. Returns the .beans/ path."""
-    base = Path(cwd) if cwd else Path.cwd()
-    beans_dir = env_beans_dir(env=env, var=var) or base / dirname
-    beans_dir.mkdir(exist_ok=True)
+def setup_store_dir(beans_dir, db_name=DB_NAME, agents_md=AGENTS_MD) -> Path:
+    """Create store directory with db, AGENTS.md, and .gitignore. Returns the dir."""
+    beans_dir = Path(beans_dir)
+    beans_dir.mkdir(parents=True, exist_ok=True)
 
     db_path = beans_dir / db_name
     Store.from_path(str(db_path)).close()
@@ -70,6 +63,38 @@ def init_project(
         gitignore_file.write_text(GITIGNORE_CONTENT)
 
     return beans_dir
+
+
+def init_project(
+    cwd=None,
+    name=None,
+    data_base=None,
+    config_file=None,
+) -> Path:
+    """Initialize a beans project in the registry. Returns the store dir path."""
+    base = Path(cwd) if cwd else Path.cwd()
+    identifier = detect_identifier(base)
+    project_name = name or detect_name(identifier)
+    store_path = (data_base or data_dir()) / project_name
+    cfg_path = config_file or config_path()
+
+    store_dir = setup_store_dir(store_path)
+    project = Project(name=project_name, identifier=identifier, store=str(store_dir))
+    add_project(project, cfg_path)
+
+    return store_dir
+
+
+def init_project_local(
+    dirname=DEFAULT_BEANS_DIR,
+    cwd=None,
+    env=os.environ,
+    var=ENV_BEANS_DIR,
+) -> Path:
+    """Initialize a beans project locally in .beans/. Returns the .beans/ path."""
+    base = Path(cwd) if cwd else Path.cwd()
+    beans_dir = env_beans_dir(env=env, var=var) or base / dirname
+    return setup_store_dir(beans_dir)
 
 
 SSH_PATTERN = re.compile(r"^[\w.-]+@([\w.-]+):(.*?)(?:\.git)?/?$")
