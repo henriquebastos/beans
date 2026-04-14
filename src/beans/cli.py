@@ -30,7 +30,7 @@ from beans.api import (
 )
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
-from beans.config import config_path, load_config
+from beans.config import Config, config_path
 from beans.models import (
     Bean,
     BeanId,
@@ -67,7 +67,7 @@ def default_parent_id():
     return None
 
 
-class Config(NamedTuple):
+class RunContext(NamedTuple):
     db: str | None = None
     project: str | None = None
     json: bool = False
@@ -86,7 +86,7 @@ def main(
         str | None, typer.Option("--fields", help="Comma-separated list of fields to include (only with --json)")
     ] = None,
 ):
-    ctx.obj = Config(
+    ctx.obj = RunContext(
         db=db, project=project, json=json_output, dry_run=dry_run,
         fields=fields.split(",") if fields else None,
     )
@@ -121,7 +121,7 @@ def output(data, json=False, fields=None) -> str:
     return ""
 
 
-def error(cfg: Config, e: Exception):
+def error(cfg: RunContext, e: Exception):
     err = Error(message=str(e))
     if cfg.json:
         typer.echo(err.model_dump_json())
@@ -130,7 +130,7 @@ def error(cfg: Config, e: Exception):
     raise typer.Exit(code=1) from e
 
 
-def get_store(cfg: Config) -> Store:
+def get_store(cfg: RunContext) -> Store:
     try:
         db_path = resolve_db(
             db=cfg.db,
@@ -505,7 +505,7 @@ def schema():
 def config():
     """Show config path and current configuration."""
     path = config_path()
-    cfg = load_config(path)
+    cfg = Config.load(path)
     typer.echo(f"Config: {path}")
     if cfg.projects:
         typer.echo(cfg.model_dump_json(indent=2))

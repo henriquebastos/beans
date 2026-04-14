@@ -7,7 +7,7 @@ import shutil
 import subprocess
 
 # Internal imports
-from beans.config import Project, config_path, data_dir, load_config, save_config
+from beans.config import Config, Project, config_path, data_dir
 from beans.store import Store
 
 DEFAULT_BEANS_DIR = ".beans"
@@ -39,7 +39,7 @@ def walk_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR) -> Path:
 
 def find_in_registry(start=None, config_file=None) -> Path | None:
     """Check project registry for a matching project. Returns store path or None."""
-    cfg = load_config(config_file or config_path())
+    cfg = Config.load(config_file or config_path())
     cwd = Path(start) if start else Path.cwd()
     identifier = detect_identifier(cwd)
     project = cfg.find_by_identifier(identifier)
@@ -85,7 +85,7 @@ def resolve_db(
     if db:
         return Path(db)
     if project:
-        cfg = load_config(config_file or config_path())
+        cfg = Config.load(config_file or config_path())
         p = cfg.find_by_name(project)
         if p is None:
             raise ProjectNotFoundError(f"Project '{project}' not found in registry")
@@ -130,9 +130,9 @@ def init_project(
     cfg_path = config_file or config_path()
 
     store_dir = setup_store_dir(store_path)
-    cfg = load_config(cfg_path)
+    cfg = Config.load(cfg_path)
     cfg.add_project(Project(name=project_name, identifier=identifier, store=str(store_dir)))
-    save_config(cfg, cfg_path)
+    cfg.save()
 
     return store_dir
 
@@ -212,8 +212,8 @@ def migrate_project(
             shutil.copy2(str(item), str(dest))
 
     # Register
-    cfg = load_config(cfg_path)
+    cfg = Config.load(cfg_path)
     cfg.add_project(Project(name=project_name, identifier=identifier, store=str(store_path)))
-    save_config(cfg, cfg_path)
+    cfg.save()
 
     return store_path

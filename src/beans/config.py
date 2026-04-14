@@ -2,9 +2,10 @@
 import json
 import os
 from pathlib import Path
+from typing import Self
 
 # Pip imports
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 CONFIG_DIR = "beans"
 CONFIG_FILE = "config.json"
@@ -20,7 +21,23 @@ class Project(BaseModel, frozen=True):
 
 
 class Config(BaseModel):
+    path: Path = Field(exclude=True)
     projects: list[Project] = []
+
+    @classmethod
+    def load(cls, path) -> Self:
+        path = Path(path)
+        if not path.exists():
+            return cls(path=path)
+        try:
+            data = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return cls(path=path)
+        return cls(path=path, **data)
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(self.model_dump_json(indent=2) + "\n")
 
     def add_project(self, project: Project) -> None:
         self.projects = [p for p in self.projects if p.identifier != project.identifier]
@@ -56,29 +73,3 @@ def config_path(config_file=CONFIG_FILE, base=None) -> Path:
 def data_dir(data_dir_name=DATA_DIR, default_xdg=DEFAULT_XDG_DATA) -> Path:
     xdg = os.environ.get("XDG_DATA_HOME", Path.home() / default_xdg)
     return Path(xdg) / data_dir_name
-
-
-def load_config(path) -> Config:
-    path = Path(path)
-    if not path.exists():
-        return Config()
-    try:
-        data = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return Config()
-    projects = [Project(**p) for p in data.get("projects", [])]
-    return Config(projects=projects)
-
-
-def save_config(config: Config, path) -> None:
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Preserve non-beans keys in existing file
-    raw = {}
-    if path.exists():
-        try:
-            raw = json.loads(path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
-    raw["projects"] = [p.model_dump() for p in config.projects]
-    path.write_text(json.dumps(raw, indent=2) + "\n")

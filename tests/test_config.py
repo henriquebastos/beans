@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 # Internal imports
-from beans.config import CONFIG_FILE, Config, config_path, load_config
+from beans.config import CONFIG_FILE, Config, config_path
 
 
 @pytest.fixture()
@@ -31,11 +31,11 @@ class TestConfigPath:
 
 
 class TestLoadConfig:
-    """load_config() reads config from a file path."""
+    """Config.load() reads config from a file path."""
 
     def test_returns_empty_config_when_no_file(self, config_dir):
-        cfg = load_config(config_dir / CONFIG_FILE)
-        assert cfg == Config()
+        cfg = Config.load(config_dir / CONFIG_FILE)
+        assert cfg == Config(path=config_dir / CONFIG_FILE)
         assert cfg.projects == []
 
     def test_reads_config_from_file(self, config_dir):
@@ -43,7 +43,7 @@ class TestLoadConfig:
         config_file = config_dir / CONFIG_FILE
         config_file.write_text(json.dumps({"projects": [{"name": "a", "identifier": "id-a", "store": "/a"}]}))
 
-        cfg = load_config(config_file)
+        cfg = Config.load(config_file)
         assert len(cfg.projects) == 1
         assert cfg.projects[0].name == "a"
 
@@ -52,5 +52,5 @@ class TestLoadConfig:
         config_file = config_dir / CONFIG_FILE
         config_file.write_text("not json")
 
-        cfg = load_config(config_file)
-        assert cfg == Config()
+        cfg = Config.load(config_file)
+        assert cfg == Config(path=config_file)

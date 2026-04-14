@@ -1,12 +1,11 @@
 # Python imports
-import json
 from pathlib import Path
 
 # Pip imports
 import pytest
 
 # Internal imports
-from beans.config import Config, Project, data_dir, load_config, save_config
+from beans.config import Config, Project, data_dir
 
 
 class TestProject:
@@ -42,49 +41,47 @@ class TestDataDir:
 
 class TestConfig:
     def test_load_empty_when_no_file(self, tmp_path):
-        path = tmp_path / "config.json"
-        cfg = load_config(path)
+        cfg = Config.load(tmp_path / "config.json")
         assert cfg.projects == []
+        assert cfg.path == tmp_path / "config.json"
 
-    def test_load_empty_when_no_projects_key(self, tmp_path):
+    def test_load_ignores_invalid_json(self, tmp_path):
         path = tmp_path / "config.json"
-        path.write_text(json.dumps({"other": "stuff"}))
-        cfg = load_config(path)
+        path.write_text("not json")
+        cfg = Config.load(path)
         assert cfg.projects == []
 
     def test_save_and_load_roundtrip(self, tmp_path):
         path = tmp_path / "config.json"
-        cfg = Config(projects=[
+        cfg = Config(path=path, projects=[
             Project(name="a", identifier="github.com/x/a", store="/store/a"),
             Project(name="b", identifier="/home/user/b", store="/store/b"),
         ])
-        save_config(cfg, path)
-        assert load_config(path) == cfg
-
-    def test_save_preserves_other_config(self, tmp_path):
-        path = tmp_path / "config.json"
-        path.write_text(json.dumps({"editor": "vim"}))
-        cfg = Config(projects=[Project(name="a", identifier="id-a", store="/store/a")])
-        save_config(cfg, path)
-        data = json.loads(path.read_text())
-        assert data["editor"] == "vim"
-        assert "projects" in data
+        cfg.save()
+        loaded = Config.load(path)
+        assert loaded.projects == cfg.projects
 
     def test_save_creates_parent_dirs(self, tmp_path):
         path = tmp_path / "sub" / "dir" / "config.json"
-        save_config(Config(), path)
+        Config(path=path).save()
         assert path.exists()
+
+    def test_path_excluded_from_json(self, tmp_path):
+        path = tmp_path / "config.json"
+        cfg = Config(path=path)
+        cfg.save()
+        assert "path" not in path.read_text()
 
 
 class TestAddProject:
     def test_add_project(self):
-        cfg = Config()
+        cfg = Config(path=Path("/tmp/c.json"))
         p = Project(name="myblog", identifier="github.com/me/blog", store="/store/myblog")
         cfg.add_project(p)
         assert cfg.projects == [p]
 
     def test_add_project_replaces_same_identifier(self):
-        cfg = Config()
+        cfg = Config(path=Path("/tmp/c.json"))
         p1 = Project(name="old", identifier="github.com/me/blog", store="/store/old")
         p2 = Project(name="new", identifier="github.com/me/blog", store="/store/new")
         cfg.add_project(p1)
@@ -92,7 +89,7 @@ class TestAddProject:
         assert cfg.projects == [p2]
 
     def test_add_multiple_projects(self):
-        cfg = Config()
+        cfg = Config(path=Path("/tmp/c.json"))
         p1 = Project(name="a", identifier="id-a", store="/store/a")
         p2 = Project(name="b", identifier="id-b", store="/store/b")
         cfg.add_project(p1)
@@ -102,21 +99,21 @@ class TestAddProject:
 
 class TestRemoveProject:
     def test_remove_by_name(self):
-        cfg = Config()
+        cfg = Config(path=Path("/tmp/c.json"))
         p = Project(name="myblog", identifier="id-a", store="/store/a")
         cfg.add_project(p)
         assert cfg.remove_project("myblog") is True
         assert cfg.projects == []
 
     def test_remove_nonexistent(self):
-        cfg = Config()
+        cfg = Config(path=Path("/tmp/c.json"))
         assert cfg.remove_project("nope") is False
 
 
 class TestFindProject:
     @pytest.fixture()
     def cfg(self):
-        return Config(projects=[
+        return Config(path=Path("/tmp/c.json"), projects=[
             Project(name="myblog", identifier="github.com/me/blog", store="/store/myblog"),
             Project(name="work-api", identifier="/home/user/work/api", store="/store/work-api"),
         ])
