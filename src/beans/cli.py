@@ -30,7 +30,7 @@ from beans.api import (
 )
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
-from beans.config import config_path, load_config
+from beans.config import config_path, find_project_by_name, load_config
 from beans.models import (
     Bean,
     BeanId,
@@ -71,13 +71,22 @@ class Config(NamedTuple):
 def main(
     ctx: typer.Context,
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
+    project: Annotated[str | None, typer.Option("--project", help="Project name from registry")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would happen without writing")] = False,
     fields: Annotated[
         str | None, typer.Option("--fields", help="Comma-separated list of fields to include (only with --json)")
     ] = None,
 ):
-    ctx.obj = Config(db=db, json=json_output, dry_run=dry_run, fields=fields.split(",") if fields else None)
+    resolved_db = db
+    if project and not db:
+        cfg_file = resolve_config_file() or config_path()
+        p = find_project_by_name(project, cfg_file)
+        if p is None:
+            typer.echo(f"Project '{project}' not found in registry", err=True)
+            raise typer.Exit(code=1)
+        resolved_db = str(Path(p.store) / DB_NAME)
+    ctx.obj = Config(db=resolved_db, json=json_output, dry_run=dry_run, fields=fields.split(",") if fields else None)
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:

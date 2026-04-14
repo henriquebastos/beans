@@ -333,6 +333,39 @@ class TestMigrateCommand:
         assert "no .beans" in result.output.lower() or "not found" in result.output.lower()
 
 
+class TestProjectFlag:
+    """--project flag resolves to a registered project's db."""
+
+    def test_project_flag_uses_registry(self, project_dir, cli, jcli, monkeypatch, tmp_path):
+        data = tmp_path / "data"
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        # Init registry project with a name
+        cli("init", "--name", "myblog")
+
+        # Create a bean via --project
+        result = cli("--project", "myblog", "--json", "create", "First post")
+        assert result.exit_code == 0
+
+        # List via --project
+        result = cli("--project", "myblog", "--json", "list")
+        import json as json_mod
+
+        beans = json_mod.loads(result.output)
+        assert len(beans) == 1
+        assert beans[0]["title"] == "First post"
+
+    def test_project_flag_not_found(self, project_dir, cli, monkeypatch, tmp_path):
+        config = tmp_path / "config" / "config.json"
+        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+
+        result = cli("--project", "nonexistent", "list")
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
+
+
 class TestProjectDiscovery:
     """CLI commands use project discovery to find .beans/beans.db."""
 
