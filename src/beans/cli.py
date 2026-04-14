@@ -30,7 +30,7 @@ from beans.api import (
 )
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
-from beans.config import config_path, find_project_by_name, load_config
+from beans.config import config_path, load_config
 from beans.models import (
     Bean,
     BeanId,
@@ -42,7 +42,14 @@ from beans.models import (
     OpenChildrenError,
 )
 from beans.store import Store
-from beans.workspace import DB_NAME, find_beans_dir, init_project, init_project_local, migrate_project, walk_beans_dir
+from beans.workspace import (
+    ProjectNotFoundError,
+    init_project,
+    init_project_local,
+    migrate_project,
+    resolve_db,
+    walk_beans_dir,
+)
 
 app = typer.Typer()
 dep_app = typer.Typer()
@@ -62,6 +69,7 @@ def default_parent_id():
 
 class Config(NamedTuple):
     db: str | None = None
+    project: str | None = None
     json: bool = False
     dry_run: bool = False
     fields: list[str] | None = None
@@ -78,15 +86,10 @@ def main(
         str | None, typer.Option("--fields", help="Comma-separated list of fields to include (only with --json)")
     ] = None,
 ):
-    resolved_db = db
-    if project and not db:
-        cfg_file = resolve_config_file() or config_path()
-        p = find_project_by_name(project, cfg_file)
-        if p is None:
-            typer.echo(f"Project '{project}' not found in registry", err=True)
-            raise typer.Exit(code=1)
-        resolved_db = str(Path(p.store) / DB_NAME)
-    ctx.obj = Config(db=resolved_db, json=json_output, dry_run=dry_run, fields=fields.split(",") if fields else None)
+    ctx.obj = Config(
+        db=db, project=project, json=json_output, dry_run=dry_run,
+        fields=fields.split(",") if fields else None,
+    )
 
 
 def local_timestamp(dt: datetime, fmt="%Y-%m-%d %H:%M") -> str:
@@ -127,15 +130,16 @@ def error(cfg: Config, e: Exception):
     raise typer.Exit(code=1) from e
 
 
-def get_store(cfg: Config, db_name=DB_NAME) -> Store:
-    if cfg.db:
-        db_path = cfg.db
-    else:
-        try:
-            db_path = str(find_beans_dir() / db_name)
-        except FileNotFoundError:
-            error(cfg, FileNotFoundError("No beans project found. Did you run 'beans init'?"))
-    return Store.from_path(db_path, dry_run=cfg.dry_run)
+def get_store(cfg: Config) -> Store:
+    try:
+        db_path = resolve_db(
+            db=cfg.db,
+            project=cfg.project,
+            config_file=resolve_config_file(),
+        )
+    except (FileNotFoundError, ProjectNotFoundError) as e:
+        error(cfg, e)
+    return Store.from_path(str(db_path), dry_run=cfg.dry_run)
 
 
 ENV_BEANS_DATA_DIR = "BEANS_DATA_DIR"

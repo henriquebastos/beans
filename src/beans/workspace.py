@@ -7,7 +7,15 @@ import shutil
 import subprocess
 
 # Internal imports
-from beans.config import Project, add_project, config_path, data_dir, find_project_by_identifier, load_registry
+from beans.config import (
+    Project,
+    add_project,
+    config_path,
+    data_dir,
+    find_project_by_identifier,
+    find_project_by_name,
+    load_registry,
+)
 from beans.store import Store
 
 DEFAULT_BEANS_DIR = ".beans"
@@ -65,6 +73,35 @@ def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=EN
     if beans_dir := find_in_registry(start=start, config_file=config_file):
         return beans_dir
     return walk_beans_dir(start=start, dirname=dirname)
+
+
+class ProjectNotFoundError(KeyError):
+    pass
+
+
+def resolve_db(
+    db=None,
+    project=None,
+    config_file=None,
+    db_name=DB_NAME,
+) -> Path:
+    """Resolve the database path. Three branches:
+    1. db: explicit path — use it, fail if missing
+    2. project: registry lookup by name — find it or fail
+    3. auto-discover: env → registry → .beans/ walk-up — find it or fail
+    """
+    if db:
+        return Path(db)
+    if project:
+        cfg_path = config_file or config_path()
+        p = find_project_by_name(project, cfg_path)
+        if p is None:
+            raise ProjectNotFoundError(f"Project '{project}' not found in registry")
+        return Path(p.store) / db_name
+    try:
+        return find_beans_dir(config_file=config_file) / db_name
+    except FileNotFoundError:
+        raise FileNotFoundError("No beans project found. Did you run 'beans init'?")
 
 
 def setup_store_dir(beans_dir, db_name=DB_NAME, agents_md=AGENTS_MD) -> Path:
