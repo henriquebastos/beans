@@ -212,6 +212,50 @@ class TestFindBeansDir:
 
         assert find_beans_dir() == other
 
+    def test_registry_match_by_path_identifier(self, tmp_path, monkeypatch):
+        """find_beans_dir resolves via registry when cwd matches a registered path identifier."""
+        monkeypatch.delenv("MAGIC_BEANS_DIR", raising=False)
+        config = tmp_path / "config" / "config.json"
+        store = tmp_path / "store" / "myproject"
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+
+        # Register project and set up store
+        init_project(cwd=project_dir, data_base=tmp_path / "store", config_file=config)
+
+        # find_beans_dir should resolve via registry
+        result = find_beans_dir(start=project_dir, config_file=config)
+        assert result == store
+        assert (result / "beans.db").exists()
+
+    def test_registry_takes_precedence_over_local_beans_dir(self, tmp_path, monkeypatch):
+        """Registry match wins over .beans/ walk-up."""
+        monkeypatch.delenv("MAGIC_BEANS_DIR", raising=False)
+        config = tmp_path / "config" / "config.json"
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+
+        # Create local .beans/
+        (project_dir / ".beans").mkdir()
+
+        # Register project
+        init_project(cwd=project_dir, data_base=tmp_path / "store", config_file=config)
+
+        # Registry should win
+        result = find_beans_dir(start=project_dir, config_file=config)
+        assert ".beans" not in str(result)
+
+    def test_falls_back_to_local_when_not_in_registry(self, tmp_path, monkeypatch):
+        """Walk-up still works when project is not registered."""
+        monkeypatch.delenv("MAGIC_BEANS_DIR", raising=False)
+        config = tmp_path / "config" / "config.json"
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        (project_dir / ".beans").mkdir()
+
+        result = find_beans_dir(start=project_dir, config_file=config)
+        assert result == project_dir / ".beans"
+
 
 class TestProjectDiscovery:
     """CLI commands use project discovery to find .beans/beans.db."""

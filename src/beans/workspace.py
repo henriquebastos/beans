@@ -6,7 +6,7 @@ import re
 import subprocess
 
 # Internal imports
-from beans.config import Project, add_project, config_path, data_dir
+from beans.config import Project, add_project, config_path, data_dir, find_project_by_identifier, load_registry
 from beans.store import Store
 
 DEFAULT_BEANS_DIR = ".beans"
@@ -36,11 +36,32 @@ def walk_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR) -> Path:
         current = parent
 
 
-def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=ENV_BEANS_DIR) -> Path:
-    """Walk up from start (default cwd) to find a .beans/ directory."""
+def find_in_registry(start=None, config_file=None) -> Path | None:
+    """Check project registry for a matching project. Returns store path or None."""
+    cfg_path = config_file or config_path()
+    cwd = Path(start) if start else Path.cwd()
+    identifier = detect_identifier(cwd)
+    project = find_project_by_identifier(identifier, cfg_path)
+    if project:
+        store = Path(project.store)
+        if store.is_dir():
+            return store
+    # Also try matching cwd as path identifier
+    for p in load_registry(cfg_path):
+        if cwd == Path(p.identifier) or str(cwd).startswith(p.identifier + "/"):
+            store = Path(p.store)
+            if store.is_dir():
+                return store
+    return None
+
+
+def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=ENV_BEANS_DIR, config_file=None) -> Path:
+    """Find beans store directory. Checks: env var → registry → local .beans/ walk-up."""
     if beans_dir := env_beans_dir(env=env, var=var):
         if not beans_dir.is_dir():
             raise FileNotFoundError(f"{var}={beans_dir} is not a directory")
+        return beans_dir
+    if beans_dir := find_in_registry(start=start, config_file=config_file):
         return beans_dir
     return walk_beans_dir(start=start, dirname=dirname)
 
