@@ -505,8 +505,11 @@ def schema():
 def config():
     """Show config path and current configuration."""
     path = config_path()
-    cfg = Config.load(path)
     typer.echo(f"Config: {path}")
+    if not path.exists():
+        typer.echo("No configuration set.")
+        return
+    cfg = Config.load(path)
     if cfg.projects:
         typer.echo(cfg.model_dump_json(indent=2))
     else:

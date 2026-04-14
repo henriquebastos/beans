@@ -31,12 +31,11 @@ class TestConfigPath:
 
 
 class TestLoadConfig:
-    """Config.load() reads config from a file path."""
+    """Config.load() reads config from an existing file."""
 
-    def test_returns_empty_config_when_no_file(self, config_dir):
-        cfg = Config.load(config_dir / CONFIG_FILE)
-        assert cfg == Config(path=config_dir / CONFIG_FILE)
-        assert cfg.projects == []
+    def test_raises_when_file_missing(self, config_dir):
+        with pytest.raises(FileNotFoundError):
+            Config.load(config_dir / CONFIG_FILE)
 
     def test_reads_config_from_file(self, config_dir):
         config_dir.mkdir(parents=True)
@@ -47,10 +46,10 @@ class TestLoadConfig:
         assert len(cfg.projects) == 1
         assert cfg.projects[0].name == "a"
 
-    def test_returns_empty_config_on_invalid_json(self, config_dir):
+    def test_raises_on_invalid_json(self, config_dir):
         config_dir.mkdir(parents=True)
         config_file = config_dir / CONFIG_FILE
         config_file.write_text("not json")
 
-        cfg = Config.load(config_file)
-        assert cfg == Config(path=config_file)
+        with pytest.raises(json.JSONDecodeError):
+            Config.load(config_file)

@@ -40,17 +40,6 @@ class TestDataDir:
 
 
 class TestConfig:
-    def test_load_empty_when_no_file(self, tmp_path):
-        cfg = Config.load(tmp_path / "config.json")
-        assert cfg.projects == []
-        assert cfg.path == tmp_path / "config.json"
-
-    def test_load_ignores_invalid_json(self, tmp_path):
-        path = tmp_path / "config.json"
-        path.write_text("not json")
-        cfg = Config.load(path)
-        assert cfg.projects == []
-
     def test_save_and_load_roundtrip(self, tmp_path):
         path = tmp_path / "config.json"
         cfg = Config(path=path, projects=[

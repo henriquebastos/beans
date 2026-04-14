@@ -27,12 +27,7 @@ class Config(BaseModel):
     @classmethod
     def load(cls, path) -> Self:
         path = Path(path)
-        if not path.exists():
-            return cls(path=path)
-        try:
-            data = json.loads(path.read_text())
-        except (json.JSONDecodeError, OSError):
-            return cls(path=path)
+        data = json.loads(path.read_text())
         return cls(path=path, **data)
 
     def save(self) -> None:
