@@ -1,3 +1,8 @@
+---
+name: beans
+description: Graph-based issue tracker for task coordination. Use when the project tracks work with beans — creating, querying, claiming, and closing tasks via CLI.
+---
+
 # Beans
 
 Graph-based issue tracker. Beans are nodes, dependencies are edges.
