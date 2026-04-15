@@ -730,18 +730,14 @@ class TestCloseChildrenGuardCli:
 
 
 class TestSkillCommand:
-    """'beans skill' outputs agent integration instructions."""
+    """'beans skill' outputs capabilities reference."""
 
     def test_skill_outputs_content(self, cli):
         exit_code, output = cli("skill")
         assert exit_code == 0
-        assert "# Beans — Agent Skill" in output
-
-    def test_skill_includes_workflow(self, cli):
-        exit_code, output = cli("skill")
-        assert exit_code == 0
+        assert "# Beans" in output
         assert "beans ready" in output
-        assert "beans claim" in output
+        assert "beans create" in output
         assert "beans close" in output
 
 

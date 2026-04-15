@@ -1,45 +1,52 @@
-# Beans — Agent Skill
+# Beans
 
-This project uses beans for task tracking. Use beans commands to manage all work.
+Graph-based issue tracker. Beans are nodes, dependencies are edges.
 
-## Workflow
+## Concepts
 
-1. Check available work: `beans ready`
-2. Read the bean: `beans show <id>`
-3. Claim it: `beans claim <id> --actor <agent>`
-4. Do the work
-5. Close it: `beans close <id> --reason "Done in <commit>"`
+- **Bean**: a task with id, title, type, status, priority, body, and timestamps.
+- **Bean IDs**: type-prefixed — `task-a3f2dd1c`, `epic-12345678`, `bug-deadbeef`.
+- **Types**: configurable via `beans types`. Default: task, bug, epic.
+- **Status**: open → in_progress → closed.
+- **Dependencies**: `A blocks B` means B can't start until A is closed.
+- **Parent/child**: epics contain subtasks via `--parent`.
+- **Ready**: a bean is ready when all its blockers are closed and it has no open children.
 
-## Key Commands
+## Commands
 
 ```bash
-beans ready                              # see what's unblocked
-beans show <id>                          # read the full bean
-beans create "Title" --body "Desc"       # create a new bean
-beans create "Title" --type bug          # create with specific type
-beans claim <id> --actor <agent>         # claim before starting
-beans close <id> --reason "Done"         # close when finished
-beans --json list                        # list all beans as JSON
-beans dep add <from> <to>               # add dependency
-beans types                              # list available types
+# Query
+beans list                               # all beans
+beans list --type bug --status open      # filtered
+beans ready                              # unblocked beans, sorted by priority
+beans show <id>                          # full details with deps
+beans search "query"                     # search title and body
+beans stats                              # counts by status, type, assignee
+beans graph                              # dependency tree
+
+# Create and update
+beans create "Title"                     # new task
+beans create "Title" --type bug --body "Details" --parent <epic-id>
+beans update <id> --title "New" --priority 0 --body "Updated"
+beans close <id> --reason "Fixed in abc1234"
+beans delete <id>
+
+# Assignment
+beans claim <id> --actor <name>          # sets assignee + in_progress
+beans release <id> --actor <name>        # clears assignee + open
+beans release --mine --actor <name>      # release all claimed by actor
+
+# Dependencies
+beans dep add <blocker-id> <blocked-id>  # blocker must close before blocked
+beans dep remove <from> <to>
+
+# Types
+beans types                              # list configured types
+beans types add spike --description "Time-boxed investigation"
+beans types remove spike
+
+# Structured output
+beans --json list                        # JSON output on any command
+beans --json --fields id,title,status list
+beans schema                             # JSON schemas for all models
 ```
-
-## Bean IDs
-
-Bean IDs are prefixed with their type: `task-a3f2dd1c`, `epic-12345678`, `bug-deadbeef`.
-Use `beans types` to see available types, `beans types add <name>` to add custom ones.
-
-## Rules
-
-- Always check `beans ready` before starting work.
-- Claim a bean before working on it.
-- One bean per deliverable change.
-- Close beans when done — don't leave them dangling.
-- If you discover new work, create a new bean for it.
-- Append `#closes <bean-id>` to commit messages.
-- Use `--json` for structured output when parsing programmatically.
-
-## Structured Output
-
-Use `beans --json <command>` for machine-readable output. The `beans schema` command
-outputs JSON schemas for all models.
