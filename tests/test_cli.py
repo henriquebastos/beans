@@ -729,41 +729,20 @@ class TestCloseChildrenGuardCli:
         assert data["status"] == "closed"
 
 
-class TestRecipeCommand:
-    """'beans recipe <client>' outputs agent-specific instructions."""
+class TestSkillCommand:
+    """'beans skill' outputs agent integration instructions."""
 
-    def test_recipe_claude(self, cli):
-        exit_code, output = cli("recipe claude")
+    def test_skill_outputs_content(self, cli):
+        exit_code, output = cli("skill")
         assert exit_code == 0
-        assert "# Beans — Claude Integration" in output
+        assert "# Beans — Agent Skill" in output
 
-    def test_recipe_gpt(self, cli):
-        exit_code, output = cli("recipe gpt")
+    def test_skill_includes_workflow(self, cli):
+        exit_code, output = cli("skill")
         assert exit_code == 0
-        assert "# Beans — GPT Integration" in output
-
-    def test_recipe_generic(self, cli):
-        exit_code, output = cli("recipe generic")
-        assert exit_code == 0
-        assert "# Beans — Agent Integration" in output
-
-    def test_recipe_unknown_client(self, cli):
-        exit_code, output = cli("recipe unknown")
-        assert exit_code != 0
-        assert "Unknown recipe: unknown" in output
-
-    def test_recipe_no_argument(self, cli):
-        exit_code, output = cli("recipe")
-        assert exit_code != 0
-        assert "Provide a client name or use --list" in output
-
-    def test_recipe_list(self, cli):
-        exit_code, output = cli("recipe --list")
-        assert exit_code == 0
-        lines = output.strip().split("\n")
-        assert "claude" in lines
-        assert "gpt" in lines
-        assert "generic" in lines
+        assert "beans ready" in output
+        assert "beans claim" in output
+        assert "beans close" in output
 
 
 class TestShowWithDeps:

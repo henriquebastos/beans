@@ -487,39 +487,17 @@ def config(ctx: typer.Context):
     typer.echo(rc.config.model_dump_json(indent=2))
 
 
-RECIPES_DIR = importlib.resources.files("beans.templates.recipes")
+SKILL_FILE = importlib.resources.files("beans.templates") / "skill.md"
 
 
-def list_recipes(recipes_dir=RECIPES_DIR) -> list[str]:
-    return sorted(r.stem for r in recipes_dir.iterdir() if r.suffix == ".md")
-
-
-def load_recipe(client, recipes_dir=RECIPES_DIR) -> str:
-    recipe_file = recipes_dir / f"{client}.md"
-    if not recipe_file.is_file():
-        available = ", ".join(list_recipes(recipes_dir))
-        raise FileNotFoundError(f"Unknown recipe: {client}. Available: {available}")
-    return recipe_file.read_text()
+def load_skill(path=SKILL_FILE) -> str:
+    return path.read_text()
 
 
 @app.command()
-def recipe(
-    client: Annotated[str | None, typer.Argument(help="Client name (claude, gpt, generic)")] = None,
-    list_all: Annotated[bool, typer.Option("--list", help="List available recipes")] = False,
-):
-    """Output agent integration recipe for a client."""
-    if list_all:
-        for name in list_recipes():
-            typer.echo(name)
-        return
-    if not client:
-        typer.echo("Provide a client name or use --list", err=True)
-        raise typer.Exit(code=1)
-    try:
-        typer.echo(load_recipe(client))
-    except FileNotFoundError as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(code=1) from e
+def skill():
+    """Output agent integration skill for use in any AI agent."""
+    typer.echo(load_skill())
 
 
 @app.command("export-journal")

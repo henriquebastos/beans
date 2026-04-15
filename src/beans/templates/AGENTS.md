@@ -20,6 +20,7 @@ pick it up. Include: what needs to change, why, which files are involved, and wh
 
 ```bash
 beans create "Title" --body "Full description of what needs to happen and why"
+beans create "Title" --type bug --body "Description"
 ```
 
 ## Working on a Task
@@ -36,6 +37,10 @@ If you discover new work while working on a bean, create a new bean for it:
 beans create "New task discovered" --body "Description" --parent <epic-id>
 beans dep add <blocker-id> <blocked-id>
 ```
+
+## Bean IDs
+
+Bean IDs are prefixed with their type: `task-a3f2dd1c`, `epic-12345678`, `bug-deadbeef`.
 
 ## Bean Hygiene
 
@@ -57,6 +62,7 @@ beans dep add <blocker-id> <blocked-id>
 | `beans release <id> --actor <name>` | Release a bean |
 | `beans dep add <from> <to>` | Add dependency (from blocks to) |
 | `beans dep remove <from> <to>` | Remove dependency |
+| `beans types` | List available bean types |
 | `beans schema` | Show JSON schemas for all models |
 
 Use `--json` on any command for structured output. Use `--body` on create/update for descriptions.

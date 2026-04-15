@@ -67,7 +67,7 @@ away everything else:
 | **Network** | Opens TCP ports, auto-pushes every 5 min | Fully offline |
 | **Telemetry** | OTel spans with actor identity + full args | None |
 | **Stealth mode** | Yes, hides from collaborators | No — transparency is a feature |
-| **AI config injection** | Writes to `.claude/settings.local.json` | Provides recipes you copy yourself |
+| **AI config injection** | Writes to `.claude/settings.local.json` | Provides a skill you copy yourself |
 | **Data model** | 50+ fields | ~10 fields + dependency edges |
 | **Agent integration** | Forced via injected prompts | Opt-in via `AGENTS.md` instructions |
 
@@ -234,10 +234,8 @@ Bean IDs are prefixed with their type: `task-a3f2dd1c`, `epic-12345678`, `spike-
 # Show config path and settings
 beans config
 
-# Agent integration recipes
-beans recipe --list
-beans recipe claude
-beans recipe generic
+# Agent integration skill
+beans skill
 ```
 
 ### Introspection
@@ -275,11 +273,11 @@ src/beans/
 ## For AI agents
 
 Beans is designed to be used by AI agents as a coordination mechanism. Add this to your
-project's `AGENTS.md`, or use `beans recipe` for a ready-made integration:
+project's `AGENTS.md`, or use `beans skill` for a ready-made integration:
 
 ```bash
-beans recipe claude    # Claude/Amp recipe
-beans recipe generic   # Generic agent recipe
+beans skill              # output agent skill to terminal
+beans skill > AGENTS.md  # save to file
 ```
 
 Or add manually:
