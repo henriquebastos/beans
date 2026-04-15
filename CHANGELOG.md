@@ -47,6 +47,7 @@
 
 - Update journal
 - Update type help text in update command
+- Bump version to 0.6.0
 ## [0.5.1] - 2026-03-27
 
 ### 🚀 Features
