@@ -20,9 +20,25 @@ class Project(BaseModel, frozen=True):
     store: str
 
 
+class BeanType(BaseModel, frozen=True):
+    name: str
+    description: str = ""
+
+
+DEFAULT_TYPES = [
+    BeanType(name="task"),
+    BeanType(name="bug"),
+    BeanType(name="epic"),
+]
+
+
 class Config(BaseModel):
     path: Path = Field(exclude=True)
     projects: list[Project] = []
+    types: list[BeanType] = Field(default_factory=lambda: list(DEFAULT_TYPES))
+
+    def type_names(self) -> set[str]:
+        return {t.name for t in self.types}
 
     @classmethod
     def from_path(cls, path) -> Self:

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 # Internal imports
-from beans.config import CONFIG_FILE, Config, config_path
+from beans.config import CONFIG_FILE, BeanType, Config, config_path
 
 
 @pytest.fixture()
@@ -54,3 +54,57 @@ class TestFromPath:
 
         with pytest.raises(json.JSONDecodeError):
             Config.from_path(config_file)
+
+
+class TestBeanType:
+    """BeanType is a frozen model with name and optional description."""
+
+    def test_name_only(self):
+        bt = BeanType(name="spike")
+        assert bt.name == "spike"
+        assert bt.description == ""
+
+    def test_with_description(self):
+        bt = BeanType(name="spike", description="Time-boxed investigation")
+        assert bt.description == "Time-boxed investigation"
+
+    def test_frozen(self):
+        bt = BeanType(name="task")
+        with pytest.raises(Exception):
+            bt.name = "changed"
+
+
+class TestConfigTypes:
+    """Config.types defaults to [task, bug, epic] and supports customization."""
+
+    def test_default_types(self):
+        cfg = Config(path=Path("/tmp/config.json"))
+        names = cfg.type_names()
+        assert names == {"task", "bug", "epic"}
+
+    def test_custom_types(self):
+        cfg = Config(
+            path=Path("/tmp/config.json"),
+            types=[BeanType(name="story"), BeanType(name="spike")],
+        )
+        assert cfg.type_names() == {"story", "spike"}
+
+    def test_types_roundtrip(self, config_dir):
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / CONFIG_FILE
+        cfg = Config(
+            path=config_file,
+            types=[BeanType(name="task"), BeanType(name="spike", description="Investigation")],
+        )
+        cfg.save()
+        loaded = Config.from_path(config_file)
+        assert loaded.type_names() == {"task", "spike"}
+        assert loaded.types[1].description == "Investigation"
+
+    def test_existing_config_without_types_gets_defaults(self, config_dir):
+        """Backward compat: configs without 'types' key get default types."""
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / CONFIG_FILE
+        config_file.write_text(json.dumps({"projects": []}))
+        cfg = Config.from_path(config_file)
+        assert cfg.type_names() == {"task", "bug", "epic"}
