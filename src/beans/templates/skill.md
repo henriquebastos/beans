@@ -39,15 +39,6 @@ Use `beans types` to see available types, `beans types add <name>` to add custom
 - Append `#closes <bean-id>` to commit messages.
 - Use `--json` for structured output when parsing programmatically.
 
-## Autonomous Mode
-
-When running autonomously, loop through ready beans:
-
-```
-beans ready → pick highest priority → beans claim →
-read bean → implement → test → commit → beans close → next bean
-```
-
 ## Structured Output
 
 Use `beans --json <command>` for machine-readable output. The `beans schema` command
