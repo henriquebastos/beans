@@ -15,6 +15,7 @@
 
 - Add Python 3.10-3.14 test matrix
 - Raise requires-python to >=3.12, revert 3.10/3.11 workarounds
+- Bump version to 0.7.0
 ## [0.6.0] - 2026-04-15
 
 ### 🚀 Features
