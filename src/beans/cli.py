@@ -241,7 +241,7 @@ def update(
     ctx: typer.Context,
     bean_id: BeanIdArg,
     title: Annotated[str | None, typer.Option(help="New title")] = None,
-    type: Annotated[str | None, typer.Option(help="New type (task, bug, epic, project, review)")] = None,
+    type: Annotated[str | None, typer.Option(help="New type")] = None,
     status: Annotated[str | None, typer.Option(help="New status")] = None,
     priority: Annotated[int | None, typer.Option(help="New priority")] = None,
     body: Annotated[str | None, typer.Option(help="New body")] = None,
