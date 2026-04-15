@@ -1,3 +1,20 @@
+## [0.7.0] - 2026-04-15
+
+### 🐛 Bug Fixes
+
+- Lower requires-python to >=3.11, fix 3.12+ syntax in f-strings
+- Lower requires-python to >=3.10, replace typing.Self with string annotations
+- Add future annotations to store.py for Python 3.10-3.13 compat
+- Python 3.10+ compat — replace datetime.UTC, fix dry-run across all versions
+
+### 📚 Documentation
+
+- Update CHANGELOG.md
+
+### ⚙️ Miscellaneous Tasks
+
+- Add Python 3.10-3.14 test matrix
+- Raise requires-python to >=3.12, revert 3.10/3.11 workarounds
 ## [0.6.0] - 2026-04-15
 
 ### 🚀 Features
