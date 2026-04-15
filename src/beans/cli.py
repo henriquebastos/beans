@@ -183,7 +183,7 @@ def migrate(
 def create(
     ctx: typer.Context,
     title: str,
-    type: Annotated[str | None, typer.Option(help="Bean type (task, bug, epic, project, review)")] = None,
+    type: Annotated[str | None, typer.Option(help="Bean type")] = None,
     body: Annotated[str, typer.Option(help="Bean description")] = "",
     parent: Annotated[str | None, typer.Option(help="Parent bean id", parser=BeanId)] = None,
     priority: Annotated[int | None, typer.Option(help="Priority (0=highest, 4=lowest)")] = None,
@@ -205,8 +205,8 @@ def create(
         kwargs["deps"] = dep
     try:
         with get_store(rc) as store:
-            bean = create_bean(store, title, **kwargs)
-    except (ValidationError, BeanNotFoundError) as e:
+            bean = create_bean(store, title, valid_types=rc.config.type_names(), **kwargs)
+    except (ValidationError, BeanNotFoundError, ValueError) as e:
         error(rc, e)
 
     typer.echo(output(bean, rc.json_output))

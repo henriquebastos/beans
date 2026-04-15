@@ -44,10 +44,10 @@ class TestCommandWiring:
         assert exit_code == 0
         assert data["title"] == "Fix auth"
 
-    def test_create_review_type(self, jcli):
-        exit_code, data = jcli('--json create "Review PR" --type review')
+    def test_create_epic_type(self, jcli):
+        exit_code, data = jcli('--json create "Design system" --type epic')
         assert exit_code == 0
-        assert data["type"] == "review"
+        assert data["type"] == "epic"
 
     def test_show(self, jcli):
         _, created = jcli('--json create "Fix auth"')
@@ -411,6 +411,11 @@ class TestInputValidation:
         exit_code, _ = jcli(f"--json update {created['id']} --priority 5")
         assert exit_code != 0
 
+    def test_create_invalid_type(self, cli):
+        exit_code, output = cli('create "Bad" --type invalid')
+        assert exit_code != 0
+        assert "Unknown type: invalid" in output
+
     def test_show_invalid_id_format(self, cli):
         exit_code, _ = cli("show not-a-bean-id")
         assert exit_code != 0
@@ -517,12 +522,12 @@ class TestStatsCommand:
     def test_stats_json_output(self, jcli):
         jcli('--json create "Task A"')
         jcli('--json create "Task B" --type bug')
-        jcli('--json create "Review C" --type review')
+        jcli('--json create "Epic C" --type epic')
 
         exit_code, data = jcli("--json stats")
         assert exit_code == 0
         assert data["by_status"] == {"open": 3}
-        assert data["by_type"] == {"task": 1, "bug": 1, "review": 1}
+        assert data["by_type"] == {"task": 1, "bug": 1, "epic": 1}
 
     def test_stats_human_output(self, cli, jcli):
         jcli('--json create "Task A"')
