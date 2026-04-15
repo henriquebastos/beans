@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Python imports
 import json
 from pathlib import Path
@@ -406,7 +408,7 @@ class Store:
         return self.dep.remove(from_id, to_id)
 
     @classmethod
-    def from_path(cls, db_path: Path, dry_run=False) -> "Store":
+    def from_path(cls, db_path: Path, dry_run=False) -> Store:
         return cls(sqlite3.connect(db_path), dry_run=dry_run)
 
     def close(self):
