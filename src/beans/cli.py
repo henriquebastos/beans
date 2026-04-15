@@ -3,7 +3,6 @@ from datetime import datetime
 import importlib.resources
 import json
 import os
-from pathlib import Path
 from typing import Annotated, NamedTuple
 
 from pydantic import ValidationError
@@ -132,28 +131,10 @@ def error(cfg: RunContext, e: Exception):
 
 def get_store(cfg: RunContext) -> Store:
     try:
-        db_path = resolve_db(
-            db=cfg.db,
-            project=cfg.project,
-            config_file=resolve_config_file(),
-        )
+        db_path = resolve_db(db=cfg.db, project=cfg.project)
     except (FileNotFoundError, ProjectNotFoundError) as e:
         error(cfg, e)
     return Store.from_path(str(db_path), dry_run=cfg.dry_run)
-
-
-ENV_BEANS_DATA_DIR = "BEANS_DATA_DIR"
-ENV_BEANS_CONFIG_FILE = "BEANS_CONFIG_FILE"
-
-
-def resolve_data_base() -> Path | None:
-    val = os.environ.get(ENV_BEANS_DATA_DIR)
-    return Path(val) if val else None
-
-
-def resolve_config_file() -> Path | None:
-    val = os.environ.get(ENV_BEANS_CONFIG_FILE)
-    return Path(val) if val else None
 
 
 @app.command()
@@ -167,11 +148,7 @@ def init(
         typer.echo(f"Initialized beans project in {beans_dir}")
         return
 
-    store_dir = init_project(
-        name=name,
-        data_base=resolve_data_base(),
-        config_file=resolve_config_file(),
-    )
+    store_dir = init_project(name=name)
     typer.echo(f"Initialized beans project in {store_dir}")
 
 
@@ -181,11 +158,7 @@ def migrate(
 ):
     """Migrate existing .beans/ to the project registry."""
     try:
-        store_dir = migrate_project(
-            name=name,
-            data_base=resolve_data_base(),
-            config_file=resolve_config_file(),
-        )
+        store_dir = migrate_project(name=name)
     except FileNotFoundError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(code=1) from e

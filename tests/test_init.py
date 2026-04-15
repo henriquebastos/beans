@@ -112,27 +112,25 @@ class TestInitRegistryCommand:
     """'beans init' (default) creates a registry entry and store in data dir."""
 
     def test_init_creates_registry_entry(self, project_dir, cli, monkeypatch, tmp_path):
-        data = tmp_path / "data"
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         result = cli("init")
 
         assert result.exit_code == 0
+        config = tmp_path / "config" / "beans" / "config.json"
         projects = Config.load(config).projects
         assert len(projects) == 1
         assert not (project_dir / ".beans").exists()
 
     def test_init_with_name(self, project_dir, cli, monkeypatch, tmp_path):
-        data = tmp_path / "data"
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         result = cli("init", "--name", "myblog")
 
         assert result.exit_code == 0
+        config = tmp_path / "config" / "beans" / "config.json"
         projects = Config.load(config).projects
         assert projects[0].name == "myblog"
 
@@ -290,10 +288,8 @@ class TestMigrateCommand:
     """'beans migrate' migrates .beans/ to registry."""
 
     def test_migrate_copies_db(self, project_dir, cli, monkeypatch, tmp_path):
-        data = tmp_path / "data"
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         # Create local .beans/ with some data
         cli("init", "--dir")
@@ -302,30 +298,28 @@ class TestMigrateCommand:
         result = cli("migrate", input="n\n")
 
         assert result.exit_code == 0
+        config = tmp_path / "config" / "beans" / "config.json"
         projects = Config.load(config).projects
         assert len(projects) == 1
         # Old .beans/ still exists (user said no to delete)
         assert (project_dir / ".beans").exists()
 
     def test_migrate_with_name(self, project_dir, cli, monkeypatch, tmp_path):
-        data = tmp_path / "data"
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         cli("init", "--dir")
 
         result = cli("migrate", "--name", "myblog", input="n\n")
 
         assert result.exit_code == 0
+        config = tmp_path / "config" / "beans" / "config.json"
         projects = Config.load(config).projects
         assert projects[0].name == "myblog"
 
     def test_migrate_fails_without_existing_beans(self, project_dir, cli, monkeypatch, tmp_path):
-        data = tmp_path / "data"
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         result = cli("migrate")
 
@@ -337,10 +331,8 @@ class TestProjectFlag:
     """--project flag resolves to a registered project's db."""
 
     def test_project_flag_uses_registry(self, project_dir, cli, jcli, monkeypatch, tmp_path):
-        data = tmp_path / "data"
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_DATA_DIR", str(data))
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         # Init registry project with a name
         cli("init", "--name", "myblog")
@@ -358,8 +350,7 @@ class TestProjectFlag:
         assert beans[0]["title"] == "First post"
 
     def test_project_flag_not_found(self, project_dir, cli, monkeypatch, tmp_path):
-        config = tmp_path / "config" / "config.json"
-        monkeypatch.setenv("BEANS_CONFIG_FILE", str(config))
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 
         result = cli("--project", "nonexistent", "list")
         assert result.exit_code == 1
