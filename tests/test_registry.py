@@ -47,7 +47,7 @@ class TestConfig:
             Project(name="b", identifier="/home/user/b", store="/store/b"),
         ])
         cfg.save()
-        loaded = Config.load(path)
+        loaded = Config.from_path(path)
         assert loaded.projects == cfg.projects
 
     def test_save_creates_parent_dirs(self, tmp_path):

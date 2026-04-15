@@ -482,7 +482,7 @@ def config():
     if not path.exists():
         typer.echo("No configuration set.")
         return
-    cfg = Config.load(path)
+    cfg = Config.from_path(path)
     if cfg.projects:
         typer.echo(cfg.model_dump_json(indent=2))
     else:

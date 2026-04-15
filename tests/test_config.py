@@ -30,19 +30,20 @@ class TestConfigPath:
         assert path == Path.home() / ".config" / "beans" / "config.json"
 
 
-class TestLoadConfig:
-    """Config.load() reads config from an existing file."""
+class TestFromPath:
+    """Config.from_path() loads existing file or creates empty config."""
 
-    def test_raises_when_file_missing(self, config_dir):
-        with pytest.raises(FileNotFoundError):
-            Config.load(config_dir / CONFIG_FILE)
+    def test_returns_empty_config_when_no_file(self, config_dir):
+        cfg = Config.from_path(config_dir / CONFIG_FILE)
+        assert cfg.projects == []
+        assert cfg.path == config_dir / CONFIG_FILE
 
     def test_reads_config_from_file(self, config_dir):
         config_dir.mkdir(parents=True)
         config_file = config_dir / CONFIG_FILE
         config_file.write_text(json.dumps({"projects": [{"name": "a", "identifier": "id-a", "store": "/a"}]}))
 
-        cfg = Config.load(config_file)
+        cfg = Config.from_path(config_file)
         assert len(cfg.projects) == 1
         assert cfg.projects[0].name == "a"
 
@@ -52,4 +53,4 @@ class TestLoadConfig:
         config_file.write_text("not json")
 
         with pytest.raises(json.JSONDecodeError):
-            Config.load(config_file)
+            Config.from_path(config_file)

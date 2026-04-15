@@ -25,8 +25,11 @@ class Config(BaseModel):
     projects: list[Project] = []
 
     @classmethod
-    def load(cls, path) -> Self:
+    def from_path(cls, path) -> Self:
+        """Load from existing file, or create empty if file doesn't exist."""
         path = Path(path)
+        if not path.exists():
+            return cls(path=path)
         data = json.loads(path.read_text())
         return cls(path=path, **data)
 

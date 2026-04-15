@@ -19,13 +19,6 @@ GITIGNORE = ".gitignore"
 GITIGNORE_CONTENT = "*\n!.gitignore\n!AGENTS.md\n!journal.jsonl\n"
 
 
-def load_or_new_config(config_file=None) -> Config:
-    path = Path(config_file or config_path())
-    if path.exists():
-        return Config.load(path)
-    return Config(path=path)
-
-
 def env_beans_dir(env=os.environ, var=ENV_BEANS_DIR) -> Path | None:
     if not (value := env.get(var)):
         return None
@@ -46,7 +39,7 @@ def walk_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR) -> Path:
 
 def find_in_registry(start=None, config_file=None) -> Path | None:
     """Check project registry for a matching project. Returns store path or None."""
-    cfg = load_or_new_config(config_file)
+    cfg = Config.from_path(config_file or config_path())
     cwd = Path(start) if start else Path.cwd()
     identifier = detect_identifier(cwd)
     project = cfg.find_by_identifier(identifier)
@@ -92,7 +85,7 @@ def resolve_db(
     if db:
         return Path(db)
     if project:
-        cfg = load_or_new_config(config_file)
+        cfg = Config.from_path(config_file or config_path())
         p = cfg.find_by_name(project)
         if p is None:
             raise ProjectNotFoundError(f"Project '{project}' not found in registry")
@@ -137,7 +130,7 @@ def init_project(
     cfg_path = config_file or config_path()
 
     store_dir = setup_store_dir(store_path)
-    cfg = load_or_new_config(cfg_path)
+    cfg = Config.from_path(cfg_path)
     cfg.add_project(Project(name=project_name, identifier=identifier, store=str(store_dir)))
     cfg.save()
 
@@ -219,7 +212,7 @@ def migrate_project(
             shutil.copy2(str(item), str(dest))
 
     # Register
-    cfg = load_or_new_config(cfg_path)
+    cfg = Config.from_path(cfg_path)
     cfg.add_project(Project(name=project_name, identifier=identifier, store=str(store_path)))
     cfg.save()
 
