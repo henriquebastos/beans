@@ -411,15 +411,6 @@ class TestInputValidation:
         exit_code, _ = jcli(f"--json update {created['id']} --priority 5")
         assert exit_code != 0
 
-    def test_create_invalid_type(self, cli):
-        exit_code, _ = cli('create "Bad" --type invalid')
-        assert exit_code != 0
-
-    def test_update_invalid_type(self, jcli):
-        _, created = jcli('--json create "Fix auth"')
-        exit_code, _ = jcli(f"--json update {created['id']} --type invalid")
-        assert exit_code != 0
-
     def test_show_invalid_id_format(self, cli):
         exit_code, _ = cli("show not-a-bean-id")
         assert exit_code != 0

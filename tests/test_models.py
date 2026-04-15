@@ -86,9 +86,9 @@ class TestBeanValidation:
         with pytest.raises(ValidationError):
             Bean(title="Bad", priority=-1)
 
-    def test_invalid_type(self):
-        with pytest.raises(ValidationError):
-            Bean(title="Bad", type="invalid")
+    def test_any_type_string_accepted(self):
+        bean = Bean(title="Custom", type="spike")
+        assert bean.type == "spike"
 
 
 class TestErrorModel:
