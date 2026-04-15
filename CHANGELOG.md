@@ -1,3 +1,52 @@
+## [0.6.0] - 2026-04-15
+
+### 🚀 Features
+
+- Add Project model and registry persistence in config.py #closes bean-ab4d764b
+- Add identifier resolution helpers (normalize_git_remote, detect_identifier, detect_name) #closes bean-4378e1f1
+- Refactor init_project for registry-first, add init_project_local for backward compat #closes bean-83dc82a2
+- Add registry lookup to find_beans_dir (env → registry → local walk-up) #closes bean-72d81587
+- Add --dir, --name, --migrate flags to init command, registry-first by default #closes bean-76ce8382
+- Add --project flag for cross-project access via registry #closes bean-3685403f
+- Add BeanType model and Config.types with default types (task, bug, epic)
+- Relax BeanId to accept any type prefix, generate type-prefixed IDs
+- Change Bean.type and BeanUpdate.type from Literal to plain str
+- Add type validation and type-prefixed ID generation in create_bean
+- Add Config to RunContext, load once in main callback, simplify config command
+- Wire type validation from Config into CLI create command
+- Add 'beans types' subcommand for list/add/remove type management
+- Add frontmatter to skill template
+
+### 🐛 Bug Fixes
+
+- *(cli)* Error when running commands without beans init #8
+- Remove autonomous mode from skill — skill describes capabilities, not workflow
+
+### 🚜 Refactor
+
+- Consolidate db resolution into resolve_db() in workspace.py
+- Extract migrate into its own command
+- Replace standalone registry functions with Config model
+- Config model with path, load classmethod, save method
+- Config.load raises on missing/invalid file, rename cli Config to RunContext
+- Remove BEANS_DATA_DIR/BEANS_CONFIG_FILE env var plumbing from CLI
+- Rename Config.load to Config.from_path, handle missing files
+- Convert RunContext to BaseModel, rename cfg to rc, accept Path in Store.from_path
+- Rename RunContext.json to json_output to fix BaseModel shadow warning
+- Replace 3 recipe templates with single 'beans skill' command
+- Rewrite skill as capabilities reference, remove workflow opinions
+
+### 📚 Documentation
+
+- Refine CLI roadmap and specs
+- Clarify workflow rules
+- Clarify --fields only works with --json #fixes #6
+- Update README and AGENTS.md for type-prefixed IDs and beans types command
+
+### ⚙️ Miscellaneous Tasks
+
+- Update journal
+- Update type help text in update command
 ## [0.5.1] - 2026-03-27
 
 ### 🚀 Features
@@ -28,6 +77,7 @@
 ### ⚙️ Miscellaneous Tasks
 
 - Sync uv.lock
+- Bump version to 0.5.1 #closes bean-53116169 #closes bean-0081eee4
 ## [0.5.0] - 2026-03-19
 
 ### 🚀 Features
