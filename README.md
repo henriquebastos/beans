@@ -11,14 +11,14 @@ CLI that both humans and agents can use.
 
 ```
 $ beans create "Fix auth middleware"
-bean-a3f2dd1c  2025-06-15 10:42  Fix auth middleware
+task-a3f2dd1c  2025-06-15 10:42  Fix auth middleware
 
 $ beans list
-bean-a3f2dd1c  2025-06-15 10:42  Fix auth middleware
-bean-7e2b9f01  2025-06-15 10:43  Add rate limiting
+task-a3f2dd1c  2025-06-15 10:42  Fix auth middleware
+task-7e2b9f01  2025-06-15 10:43  Add rate limiting
 
 $ beans --json list
-[{"id": "bean-a3f2dd1c", "title": "Fix auth middleware", "status": "open", ...}]
+[{"id": "task-a3f2dd1c", "title": "Fix auth middleware", "status": "open", ...}]
 ```
 
 ## Why Beans exists
@@ -119,7 +119,7 @@ beans create "Write integration tests" --body "Cover all CRUD operations"
 
 # Create an epic with children
 beans create "Launch v1" --type epic
-beans create "Deploy to staging" --parent bean-<epic-id>
+beans create "Deploy to staging" --parent epic-<id>
 
 # List all beans
 beans list
@@ -143,20 +143,20 @@ beans --json list
 ### Bean CRUD
 
 ```bash
-# Create (types: task, bug, epic, project, review)
-beans create "Fix auth" --type bug --body "Detailed description" --parent bean-<id>
+# Create (default types: task, bug, epic — configurable via beans types)
+beans create "Fix auth" --type bug --body "Detailed description" --parent epic-<id>
 
 # Show
-beans show bean-a3f2dd1c
+beans show task-a3f2dd1c
 
 # Update
-beans update bean-a3f2dd1c --title "New title" --status in_progress --priority 0
+beans update task-a3f2dd1c --title "New title" --status in_progress --priority 0
 
 # Close (sets status=closed and closed_at)
-beans close bean-a3f2dd1c --reason "Fixed in commit abc1234"
+beans close task-a3f2dd1c --reason "Fixed in commit abc1234"
 
 # Delete
-beans delete bean-a3f2dd1c
+beans delete task-a3f2dd1c
 ```
 
 ### Querying
@@ -182,20 +182,20 @@ beans graph
 
 ```bash
 # A blocks B (B can't start until A is closed)
-beans dep add bean-aaaa bean-bbbb
+beans dep add task-aaaa1111 task-bbbb2222
 
 # Remove a dependency
-beans dep remove bean-aaaa bean-bbbb
+beans dep remove task-aaaa1111 task-bbbb2222
 ```
 
 ### Agent coordination
 
 ```bash
 # Claim a bean (sets assignee + status=in_progress)
-beans claim bean-a3f2dd1c --actor alice
+beans claim task-a3f2dd1c --actor alice
 
 # Release a claimed bean
-beans release bean-a3f2dd1c --actor alice
+beans release task-a3f2dd1c --actor alice
 
 # Release all beans claimed by an actor
 beans release --mine --actor alice
@@ -210,6 +210,23 @@ beans export-journal > journal.jsonl
 # Rebuild database from journal
 beans rebuild journal.jsonl
 ```
+
+### Custom types
+
+Beans ships with three default types: `task`, `bug`, and `epic`. Add your own:
+
+```bash
+# List configured types
+beans types
+
+# Add a custom type
+beans types add spike --description "Time-boxed investigation"
+
+# Remove a type
+beans types remove spike
+```
+
+Bean IDs are prefixed with their type: `task-a3f2dd1c`, `epic-12345678`, `spike-deadbeef`.
 
 ### Configuration
 
@@ -231,7 +248,7 @@ beans schema
 
 # Field filtering (works with show, list, ready, search)
 beans --fields id,title,status list
-beans --json --fields id,title show bean-a3f2dd1c
+beans --json --fields id,title show task-a3f2dd1c
 ```
 
 ## Architecture

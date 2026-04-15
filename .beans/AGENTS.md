@@ -68,9 +68,9 @@ def find_beans_dir(start=None, dirname=BEANS_DIR) -> Path: ...
 
 # Yes — class owns its configuration
 class BeanId(str):
-    prefix = ID_PREFIX
+    pattern = ID_PATTERN
     def __new__(cls, value="", **kwargs):
-        if not value.startswith(cls.prefix): ...
+        if not cls.pattern.match(value): ...
 
 # No — function reaches for the global directly
 def find_beans_dir(start=None) -> Path:
