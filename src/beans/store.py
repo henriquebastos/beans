@@ -351,6 +351,35 @@ class JournalStore:
                     )
 
 
+# Dry-run support
+
+class DryRunConnection:
+    """Wraps a sqlite3.Connection, suppressing commit so dry-run can rollback."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def commit(self):
+        pass  # suppress
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        if args[0] is None:
+            return  # suppress commit
+        self._conn.rollback()
+
+
 # Composite store
 
 class Store:
@@ -359,8 +388,7 @@ class Store:
         conn.executescript(SCHEMA)
         migrate(conn)
         if dry_run:
-            conn.autocommit = True
-            conn.execute("BEGIN")
+            conn = DryRunConnection(conn)
         self.bean = BeanStore(conn)
         self.dep = DepStore(conn)
         self.journal = JournalStore(conn)
@@ -413,7 +441,7 @@ class Store:
 
     def close(self):
         if self.dry_run:
-            self.conn.execute("ROLLBACK")
+            self.conn.rollback()
         self.conn.close()
 
     def __enter__(self):

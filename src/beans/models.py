@@ -1,5 +1,5 @@
 # Python imports
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from functools import partial
 import re
 import secrets
@@ -77,7 +77,7 @@ class Bean(BaseModel):
     assignee: str | None = None
     created_by: str | None = None
     ref_id: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: datetime | None = None
     close_reason: str | None = None
 
