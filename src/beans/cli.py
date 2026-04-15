@@ -1,5 +1,6 @@
 # Python imports
 from datetime import datetime
+import importlib.metadata
 import importlib.resources
 import json
 import os
@@ -51,6 +52,8 @@ from beans.workspace import (
     walk_beans_dir,
 )
 
+VERSION = importlib.metadata.version("magic-beans")
+
 app = typer.Typer()
 dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
@@ -78,9 +81,18 @@ class RunContext(BaseModel):
     fields: list[str] | None = None
 
 
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"beans {VERSION}")
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
+    version: Annotated[
+        bool | None, typer.Option("--version", help="Show version", callback=version_callback, is_eager=True)
+    ] = None,
     db: Annotated[str | None, typer.Option(help="Path to SQLite database")] = None,
     project: Annotated[str | None, typer.Option("--project", help="Project name from registry")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
