@@ -160,8 +160,9 @@ def add_dep(store: Store, from_id, to_id, dep_type="blocks") -> Dep:
                 title = f' "{b.title}"' if b else ""
                 parts.append(f"{bid}{title}")
 
+            cycle = " → ".join(parts)
             raise CyclicDepError(
-                f"Adding this dependency would create a cycle: {' \u2192 '.join(parts)}"
+                f"Adding this dependency would create a cycle: {cycle}"
             )
 
         if current in visited:

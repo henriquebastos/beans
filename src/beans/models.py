@@ -48,7 +48,7 @@ class BeanId(str):
         return {"type": "string", "pattern": r"^[a-z]+-[0-9a-f]+$"}
 
     @classmethod
-    def generate(cls, type_name="task", fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
+    def generate(cls, type_name="task", fn=partial(secrets.token_hex, ID_BYTES)) -> "BeanId":
         return cls(f"{type_name}-{fn()}")
 
     @property

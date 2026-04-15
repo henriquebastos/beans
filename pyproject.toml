@@ -7,7 +7,7 @@ license = "MIT"
 authors = [
     { name = "Henrique Bastos", email = "henrique@bastos.net" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.0",
     "typer>=0.9",
