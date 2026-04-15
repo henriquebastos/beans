@@ -108,3 +108,28 @@ class TestConfigTypes:
         config_file.write_text(json.dumps({"projects": []}))
         cfg = Config.from_path(config_file)
         assert cfg.type_names() == {"task", "bug", "epic"}
+
+
+class TestConfigAddRemoveType:
+    """Config supports adding and removing types."""
+
+    def test_add_type(self):
+        cfg = Config(path=Path("/tmp/config.json"))
+        cfg.add_type(BeanType(name="spike", description="Investigation"))
+        assert "spike" in cfg.type_names()
+
+    def test_add_duplicate_replaces(self):
+        cfg = Config(path=Path("/tmp/config.json"))
+        cfg.add_type(BeanType(name="task", description="Updated"))
+        task_types = [t for t in cfg.types if t.name == "task"]
+        assert len(task_types) == 1
+        assert task_types[0].description == "Updated"
+
+    def test_remove_type(self):
+        cfg = Config(path=Path("/tmp/config.json"))
+        assert cfg.remove_type("bug")
+        assert "bug" not in cfg.type_names()
+
+    def test_remove_nonexistent_returns_false(self):
+        cfg = Config(path=Path("/tmp/config.json"))
+        assert not cfg.remove_type("nonexistent")

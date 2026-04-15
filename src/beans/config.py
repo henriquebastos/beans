@@ -40,6 +40,15 @@ class Config(BaseModel):
     def type_names(self) -> set[str]:
         return {t.name for t in self.types}
 
+    def add_type(self, bean_type: BeanType) -> None:
+        self.types = [t for t in self.types if t.name != bean_type.name]
+        self.types.append(bean_type)
+
+    def remove_type(self, name) -> bool:
+        before = len(self.types)
+        self.types = [t for t in self.types if t.name != name]
+        return len(self.types) < before
+
     @classmethod
     def from_path(cls, path) -> Self:
         """Load from existing file, or create empty if file doesn't exist."""

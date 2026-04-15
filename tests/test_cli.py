@@ -632,6 +632,39 @@ class TestConfigCommand:
         assert "myblog" in output
 
 
+class TestTypesCommand:
+    """'beans types' manages custom bean types."""
+
+    def test_types_list_default(self, cli, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        exit_code, output = cli("types")
+        assert exit_code == 0
+        assert "task" in output
+        assert "bug" in output
+        assert "epic" in output
+
+    def test_types_add(self, cli, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        exit_code, output = cli('types add spike --description "Investigation"')
+        assert exit_code == 0
+        assert "spike" in output
+        # Verify persisted
+        exit_code, output = cli("types")
+        assert "spike" in output
+
+    def test_types_remove(self, cli, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        exit_code, _ = cli("types remove bug")
+        assert exit_code == 0
+        exit_code, output = cli("types")
+        assert "bug" not in output
+
+    def test_types_remove_nonexistent(self, cli, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+        exit_code, _ = cli("types remove nonexistent")
+        assert exit_code != 0
+
+
 class TestCreateWithDeps:
     """'beans create --dep' creates inline dependencies."""
 

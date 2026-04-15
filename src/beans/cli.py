@@ -30,7 +30,7 @@ from beans.api import (
 )
 from beans.api import graph as build_graph
 from beans.api import stats as get_stats
-from beans.config import Config, config_path
+from beans.config import BeanType, Config, config_path
 from beans.models import (
     Bean,
     BeanId,
@@ -54,6 +54,8 @@ from beans.workspace import (
 app = typer.Typer()
 dep_app = typer.Typer()
 app.add_typer(dep_app, name="dep")
+types_app = typer.Typer()
+app.add_typer(types_app, name="types")
 BeanIdArg = Annotated[str, typer.Argument(parser=BeanId)]
 
 ENV_BEANS_PARENT_ID = "MAGIC_BEANS_PARENT_ID"
@@ -575,3 +577,40 @@ def dep_remove(
 
     if not rc.json_output:
         typer.echo(f"Removed {from_id} -> {to_id}")
+
+
+@types_app.callback(invoke_without_command=True)
+def types_list(ctx: typer.Context):
+    """List configured bean types."""
+    if ctx.invoked_subcommand is not None:
+        return
+    rc = ctx.obj
+    for t in rc.config.types:
+        line = t.name
+        if t.description:
+            line += f"  {t.description}"
+        typer.echo(line)
+
+
+@types_app.command("add")
+def types_add(
+    ctx: typer.Context,
+    name: str,
+    description: Annotated[str, typer.Option(help="Type description")] = "",
+):
+    """Add a bean type to config."""
+    rc = ctx.obj
+    rc.config.add_type(BeanType(name=name, description=description))
+    rc.config.save()
+    typer.echo(f"Added type: {name}")
+
+
+@types_app.command("remove")
+def types_remove(ctx: typer.Context, name: str):
+    """Remove a bean type from config."""
+    rc = ctx.obj
+    if not rc.config.remove_type(name):
+        typer.echo(f"Type not found: {name}", err=True)
+        raise typer.Exit(code=1)
+    rc.config.save()
+    typer.echo(f"Removed type: {name}")
