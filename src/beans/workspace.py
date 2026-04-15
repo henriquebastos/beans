@@ -102,7 +102,7 @@ def setup_store_dir(beans_dir, db_name=DB_NAME, agents_md=AGENTS_MD) -> Path:
     beans_dir.mkdir(parents=True, exist_ok=True)
 
     db_path = beans_dir / db_name
-    Store.from_path(str(db_path)).close()
+    Store.from_path(db_path).close()
 
     agents_file = beans_dir / agents_md
     if not agents_file.exists():

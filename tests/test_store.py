@@ -485,7 +485,7 @@ class TestSchemaMigration:
     def test_reopening_migrated_database_is_idempotent(self, tmp_path):
         from beans.store import SCHEMA_VERSION
 
-        db_path = str(tmp_path / "test.db")
+        db_path = tmp_path / "test.db"
         with Store.from_path(db_path) as s:
             s.bean.create(Bean(title="Survives migration"))
 

@@ -3,9 +3,10 @@ from datetime import datetime
 import importlib.resources
 import json
 import os
-from typing import Annotated, NamedTuple
+from pathlib import Path
+from typing import Annotated
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 # Pip imports
 import typer
@@ -66,8 +67,8 @@ def default_parent_id():
     return None
 
 
-class RunContext(NamedTuple):
-    db: str | None = None
+class RunContext(BaseModel):
+    db: Path | None = None
     project: str | None = None
     json: bool = False
     dry_run: bool = False
@@ -120,21 +121,21 @@ def output(data, json=False, fields=None) -> str:
     return ""
 
 
-def error(cfg: RunContext, e: Exception):
+def error(rc: RunContext, e: Exception):
     err = Error(message=str(e))
-    if cfg.json:
+    if rc.json:
         typer.echo(err.model_dump_json())
     else:
         typer.echo(err.message, err=True)
     raise typer.Exit(code=1) from e
 
 
-def get_store(cfg: RunContext) -> Store:
+def get_store(rc: RunContext) -> Store:
     try:
-        db_path = resolve_db(db=cfg.db, project=cfg.project)
+        db_path = resolve_db(db=rc.db, project=rc.project)
     except (FileNotFoundError, ProjectNotFoundError) as e:
-        error(cfg, e)
-    return Store.from_path(str(db_path), dry_run=cfg.dry_run)
+        error(rc, e)
+    return Store.from_path(db_path, dry_run=rc.dry_run)
 
 
 @app.command()
@@ -190,7 +191,7 @@ def create(
     ] = None,
 ):
     """Create a new bean."""
-    cfg = ctx.obj
+    rc = ctx.obj
     if parent is None:
         parent = default_parent_id()
     kwargs = {"body": body, "parent_id": parent}
@@ -201,34 +202,34 @@ def create(
     if dep:
         kwargs["deps"] = dep
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             bean = create_bean(store, title, **kwargs)
     except (ValidationError, BeanNotFoundError) as e:
-        error(cfg, e)
+        error(rc, e)
 
-    typer.echo(output(bean, cfg.json))
+    typer.echo(output(bean, rc.json))
 
 
 @app.command()
 def show(ctx: typer.Context, bean_id: BeanIdArg):
     """Show a single bean by id."""
-    cfg = ctx.obj
+    rc = ctx.obj
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             bean = show_bean(store, bean_id)
             all_deps = store.list_all_deps()
     except BeanNotFoundError as e:
-        error(cfg, e)
+        error(rc, e)
 
-    if cfg.json:
+    if rc.json:
         data = bean.model_dump()
         data["blocked_by"] = [str(d.from_id) for d in all_deps if d.to_id == bean_id and d.dep_type == "blocks"]
         data["blocks"] = [str(d.to_id) for d in all_deps if d.from_id == bean_id and d.dep_type == "blocks"]
-        if cfg.fields:
-            data = {k: v for k, v in data.items() if k in cfg.fields}
+        if rc.fields:
+            data = {k: v for k, v in data.items() if k in rc.fields}
         typer.echo(json.dumps(data, default=str))
     else:
-        typer.echo(output(bean, False, cfg.fields))
+        typer.echo(output(bean, False, rc.fields))
 
 
 @app.command()
@@ -243,11 +244,11 @@ def update(
     parent: Annotated[str | None, typer.Option(help="New parent bean id", parser=BeanId)] = None,
 ):
     """Update fields on a bean."""
-    cfg = ctx.obj
+    rc = ctx.obj
     fields = {"title": title, "type": type, "status": status, "priority": priority, "body": body, "parent_id": parent}
     clean_fields = {k: v for k, v in fields.items() if v is not None}
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             # If status is changing away from closed, use reopen_bean
             if status and status != "closed":
                 current = show_bean(store, bean_id)
@@ -261,9 +262,9 @@ def update(
             else:
                 bean = update_bean(store, bean_id, **clean_fields)
     except (BeanNotFoundError, ValidationError) as e:
-        error(cfg, e)
+        error(rc, e)
 
-    typer.echo(output(bean, cfg.json))
+    typer.echo(output(bean, rc.json))
 
 
 @app.command()
@@ -274,27 +275,27 @@ def close(
     force: Annotated[bool, typer.Option("--force", help="Close even if children are open")] = False,
 ):
     """Close a bean (set status=closed and closed_at)."""
-    cfg = ctx.obj
+    rc = ctx.obj
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             bean = close_bean(store, bean_id, reason=reason, force=force)
     except (BeanNotFoundError, OpenChildrenError) as e:
-        error(cfg, e)
+        error(rc, e)
 
-    typer.echo(output(bean, cfg.json))
+    typer.echo(output(bean, rc.json))
 
 
 @app.command()
 def delete(ctx: typer.Context, bean_id: BeanIdArg):
     """Delete a bean."""
-    cfg = ctx.obj
+    rc = ctx.obj
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             delete_bean(store, bean_id)
     except BeanNotFoundError as e:
-        error(cfg, e)
+        error(rc, e)
 
-    if not cfg.json:
+    if not rc.json:
         typer.echo(f"Deleted {bean_id}")
 
 
@@ -305,14 +306,14 @@ def claim(
     actor: Annotated[str, typer.Option(help="Who is claiming the bean")],
 ):
     """Claim a bean (set assignee and status=in_progress)."""
-    cfg = ctx.obj
+    rc = ctx.obj
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             bean = claim_bean(store, bean_id, actor)
     except (BeanNotFoundError, ValueError) as e:
-        error(cfg, e)
+        error(rc, e)
 
-    typer.echo(output(bean, cfg.json))
+    typer.echo(output(bean, rc.json))
 
 
 @app.command()
@@ -323,22 +324,22 @@ def release(
     mine: Annotated[bool, typer.Option("--mine", help="Release all beans claimed by actor")] = False,
 ):
     """Release a claimed bean (clear assignee, set status=open)."""
-    cfg = ctx.obj
+    rc = ctx.obj
     if mine and bean_id:
-        error(cfg, ValueError("Provide a bean id or --mine, not both"))
+        error(rc, ValueError("Provide a bean id or --mine, not both"))
     elif mine:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             beans = release_mine(store, actor)
-        typer.echo(output(beans, cfg.json))
+        typer.echo(output(beans, rc.json))
     elif bean_id:
         try:
-            with get_store(cfg) as store:
+            with get_store(rc) as store:
                 bean = release_bean(store, bean_id, actor)
         except (BeanNotFoundError, ValueError) as e:
-            error(cfg, e)
-        typer.echo(output(bean, cfg.json))
+            error(rc, e)
+        typer.echo(output(bean, rc.json))
     else:
-        error(cfg, ValueError("Provide a bean id or --mine"))
+        error(rc, ValueError("Provide a bean id or --mine"))
 
 
 @app.command("list")
@@ -355,15 +356,15 @@ def list_cmd(
     parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
 ):
     """List all beans."""
-    cfg = ctx.obj
+    rc = ctx.obj
     if parent is None:
         parent = default_parent_id()
     types = type.split(",") if type else None
     statuses = status.split(",") if status else None
-    with get_store(cfg) as store:
+    with get_store(rc) as store:
         beans = list_beans(store, types=types, statuses=statuses, parent_id=parent)
 
-    typer.echo(output(beans, cfg.json, cfg.fields))
+    typer.echo(output(beans, rc.json, rc.fields))
 
 
 @app.command()
@@ -374,25 +375,25 @@ def ready(
     parent: Annotated[str | None, typer.Option(help="Filter by parent bean id", parser=BeanId)] = None,
 ):
     """List only unblocked beans."""
-    cfg = ctx.obj
+    rc = ctx.obj
     if parent is None:
         parent = default_parent_id()
     if assignee and unassigned:
-        error(cfg, ValueError("--assignee and --unassigned are mutually exclusive"))
-    with get_store(cfg) as store:
+        error(rc, ValueError("--assignee and --unassigned are mutually exclusive"))
+    with get_store(rc) as store:
         beans = ready_beans(store, assignee=assignee, unassigned=unassigned, parent_id=parent)
 
-    typer.echo(output(beans, cfg.json, cfg.fields))
+    typer.echo(output(beans, rc.json, rc.fields))
 
 
 @app.command()
 def stats(ctx: typer.Context):
     """Show aggregate counts by status, type, and assignee."""
-    cfg = ctx.obj
-    with get_store(cfg) as store:
+    rc = ctx.obj
+    with get_store(rc) as store:
         data = get_stats(store)
 
-    if cfg.json:
+    if rc.json:
         typer.echo(json.dumps(data))
     else:
         for section, counts in data.items():
@@ -441,11 +442,11 @@ def format_graph(data) -> str:
 @app.command("graph")
 def graph_cmd(ctx: typer.Context):
     """Show dependency tree visualization."""
-    cfg = ctx.obj
-    with get_store(cfg) as store:
+    rc = ctx.obj
+    with get_store(rc) as store:
         data = build_graph(store)
 
-    if cfg.json:
+    if rc.json:
         typer.echo(json.dumps(data))
     else:
         text = format_graph(data)
@@ -456,11 +457,11 @@ def graph_cmd(ctx: typer.Context):
 @app.command()
 def search(ctx: typer.Context, query: str):
     """Search beans by title and body."""
-    cfg = ctx.obj
-    with get_store(cfg) as store:
+    rc = ctx.obj
+    with get_store(rc) as store:
         beans = search_beans(store, query)
 
-    typer.echo(output(beans, cfg.json, cfg.fields))
+    typer.echo(output(beans, rc.json, rc.fields))
 
 
 @app.command()
@@ -527,8 +528,8 @@ def recipe(
 @app.command("export-journal")
 def export_journal(ctx: typer.Context):
     """Export journal entries as JSONL."""
-    cfg = ctx.obj
-    with get_store(cfg) as store:
+    rc = ctx.obj
+    with get_store(rc) as store:
         for line in store.journal.export():
             typer.echo(line)
 
@@ -536,11 +537,11 @@ def export_journal(ctx: typer.Context):
 @app.command()
 def rebuild(ctx: typer.Context, journal_file: str):
     """Rebuild database from a JSONL journal file."""
-    cfg = ctx.obj
+    rc = ctx.obj
     with open(journal_file) as f:
         lines = [line.strip() for line in f if line.strip()]
 
-    with get_store(cfg) as store:
+    with get_store(rc) as store:
         store.journal.replay(lines)
 
     typer.echo(f"Replayed {len(lines)} entries")
@@ -554,13 +555,13 @@ def dep_add(
     dep_type: Annotated[str, typer.Option("--type", help="Dependency type")] = "blocks",
 ):
     """Add a dependency between two beans."""
-    cfg = ctx.obj
+    rc = ctx.obj
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             dep = add_dep(store, from_id, to_id, dep_type)
     except CyclicDepError as e:
-        error(cfg, e)
-    typer.echo(output(dep, cfg.json))
+        error(rc, e)
+    typer.echo(output(dep, rc.json))
 
 
 @dep_app.command("remove")
@@ -570,12 +571,12 @@ def dep_remove(
     to_id: BeanIdArg,
 ):
     """Remove a dependency between two beans."""
-    cfg = ctx.obj
+    rc = ctx.obj
     try:
-        with get_store(cfg) as store:
+        with get_store(rc) as store:
             remove_dep(store, from_id, to_id)
     except DepNotFoundError as e:
-        error(cfg, e)
+        error(rc, e)
 
-    if not cfg.json:
+    if not rc.json:
         typer.echo(f"Removed {from_id} -> {to_id}")
