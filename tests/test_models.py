@@ -36,7 +36,7 @@ class TestBeanDefaults:
 
     def test_id_format(self):
         bean = Bean(title="Fix auth")
-        assert re.fullmatch(r"bean-[0-9a-f]{8}", bean.id)
+        assert re.fullmatch(r"task-[0-9a-f]{8}", bean.id)
 
     def test_created_at_is_set(self):
         bean = Bean(title="Fix auth")
@@ -100,17 +100,44 @@ class TestErrorModel:
 
 
 class TestBeanId:
-    """BeanId validates prefix and generates unique ids."""
+    """BeanId validates pattern and generates unique ids."""
 
     def test_two_beans_have_different_ids(self):
         a = Bean(title="First")
         b = Bean(title="Second")
         assert a.id != b.id
 
-    def test_accepts_prefix_for_matching(self):
-        bid = BeanId("bean-a3")
-        assert bid == "bean-a3"
+    def test_accepts_bean_prefix(self):
+        bid = BeanId("bean-a3b4c5d6")
+        assert bid == "bean-a3b4c5d6"
 
-    def test_rejects_missing_prefix(self):
+    def test_accepts_any_type_prefix(self):
+        assert BeanId("task-a3b4c5d6") == "task-a3b4c5d6"
+        assert BeanId("epic-12345678") == "epic-12345678"
+        assert BeanId("spike-deadbeef") == "spike-deadbeef"
+
+    def test_rejects_no_prefix(self):
         with pytest.raises(ValueError, match="Invalid bean id"):
-            BeanId("not-a-bean")
+            BeanId("noprefixhere")
+
+    def test_rejects_uppercase(self):
+        with pytest.raises(ValueError, match="Invalid bean id"):
+            BeanId("Task-a3b4c5d6")
+
+    def test_rejects_non_hex_suffix(self):
+        with pytest.raises(ValueError, match="Invalid bean id"):
+            BeanId("task-notahex!")
+
+    def test_generate_with_type(self):
+        bid = BeanId.generate("epic")
+        assert bid.startswith("epic-")
+        assert re.fullmatch(r"epic-[0-9a-f]{8}", bid)
+
+    def test_generate_default_is_task(self):
+        bid = BeanId.generate()
+        assert bid.startswith("task-")
+
+    def test_type_prefix_property(self):
+        assert BeanId("task-a3b4c5d6").type_prefix == "task"
+        assert BeanId("epic-12345678").type_prefix == "epic"
+        assert BeanId("bean-deadbeef").type_prefix == "bean"

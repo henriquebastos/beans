@@ -1,6 +1,7 @@
 # Python imports
 from datetime import UTC, datetime
 from functools import partial
+import re
 import secrets
 from typing import Literal
 
@@ -24,15 +25,15 @@ class OpenChildrenError(ValueError):
     pass
 
 
-ID_PREFIX = "bean-"
 ID_BYTES = 4
+ID_PATTERN = re.compile(r"^[a-z]+-[0-9a-f]+$")
 
 
 class BeanId(str):
-    prefix = ID_PREFIX
+    pattern = ID_PATTERN
 
     def __new__(cls, value="", **kwargs):
-        if not value.startswith(cls.prefix):
+        if not cls.pattern.match(value):
             raise ValueError(f"Invalid bean id: {value}")
         return super().__new__(cls, value)
 
@@ -44,11 +45,15 @@ class BeanId(str):
 
     @classmethod
     def __get_pydantic_json_schema__(cls, schema, handler):
-        return {"type": "string", "pattern": f"^{cls.prefix}[0-9a-f]{{8}}$"}
+        return {"type": "string", "pattern": r"^[a-z]+-[0-9a-f]+$"}
 
     @classmethod
-    def generate(cls, prefix=ID_PREFIX, fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
-        return cls(prefix + fn())
+    def generate(cls, type_name="task", fn=partial(secrets.token_hex, ID_BYTES)) -> BeanId:
+        return cls(f"{type_name}-{fn()}")
+
+    @property
+    def type_prefix(self) -> str:
+        return self.split("-", 1)[0]
 
 
 class Error(BaseModel):
