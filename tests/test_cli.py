@@ -605,12 +605,14 @@ class TestConfigCommand:
         assert exit_code == 0
         assert str(config_dir / "config.json") in output
 
-    def test_config_shows_no_configuration(self, cli, tmp_path, monkeypatch):
+    def test_config_shows_default_types(self, cli, tmp_path, monkeypatch):
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
 
         exit_code, output = cli("config")
         assert exit_code == 0
-        assert "No configuration set." in output
+        assert "task" in output
+        assert "bug" in output
+        assert "epic" in output
 
     def test_config_shows_values(self, cli, tmp_path, monkeypatch):
         config_dir = tmp_path / ".config" / "beans"

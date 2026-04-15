@@ -68,6 +68,7 @@ def default_parent_id():
 
 
 class RunContext(BaseModel):
+    config: Config
     db: Path | None = None
     project: str | None = None
     json_output: bool = False
@@ -86,8 +87,9 @@ def main(
         str | None, typer.Option("--fields", help="Comma-separated list of fields to include (only with --json)")
     ] = None,
 ):
+    config = Config.from_path(config_path())
     ctx.obj = RunContext(
-        db=db, project=project, json_output=json_output, dry_run=dry_run,
+        config=config, db=db, project=project, json_output=json_output, dry_run=dry_run,
         fields=fields.split(",") if fields else None,
     )
 
@@ -476,18 +478,11 @@ def schema():
 
 
 @app.command()
-def config():
+def config(ctx: typer.Context):
     """Show config path and current configuration."""
-    path = config_path()
-    typer.echo(f"Config: {path}")
-    if not path.exists():
-        typer.echo("No configuration set.")
-        return
-    cfg = Config.from_path(path)
-    if cfg.projects:
-        typer.echo(cfg.model_dump_json(indent=2))
-    else:
-        typer.echo("No configuration set.")
+    rc = ctx.obj
+    typer.echo(f"Config: {rc.config.path}")
+    typer.echo(rc.config.model_dump_json(indent=2))
 
 
 RECIPES_DIR = importlib.resources.files("beans.templates.recipes")
