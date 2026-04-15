@@ -83,6 +83,22 @@ class TestCreateBean:
         with pytest.raises(BeanNotFoundError, match="does not exist"):
             create_bean(store, "Orphan", parent_id=BeanId("bean-00000000"))
 
+    def test_create_validates_type_when_valid_types_given(self, store):
+        with pytest.raises(ValueError, match="Unknown type: spike"):
+            create_bean(store, "Bad type", type="spike", valid_types=("task", "bug", "epic"))
+
+    def test_create_skips_validation_when_no_valid_types(self, store):
+        bean = create_bean(store, "Any type", type="spike")
+        assert bean.type == "spike"
+
+    def test_create_generates_type_prefixed_id(self, store):
+        bean = create_bean(store, "Epic task", type="epic")
+        assert bean.id.startswith("epic-")
+
+    def test_create_default_type_generates_task_id(self, store):
+        bean = create_bean(store, "Simple")
+        assert bean.id.startswith("task-")
+
 
 class TestShowBean:
     """show_bean() retrieves a single bean by id."""

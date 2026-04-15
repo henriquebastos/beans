@@ -2,17 +2,29 @@
 from datetime import UTC, datetime
 
 # Internal imports
-from beans.models import Bean, BeanNotFoundError, BeanUpdate, CyclicDepError, Dep, DepNotFoundError, OpenChildrenError
+from beans.models import (
+    Bean,
+    BeanId,
+    BeanNotFoundError,
+    BeanUpdate,
+    CyclicDepError,
+    Dep,
+    DepNotFoundError,
+    OpenChildrenError,
+)
 from beans.store import Store
 
 
-def create_bean(store: Store, title, deps=(), **fields) -> Bean:
+def create_bean(store: Store, title, valid_types=(), deps=(), **fields) -> Bean:
+    bean_type = fields.get("type", "task")
+    if valid_types and bean_type not in valid_types:
+        raise ValueError(f"Unknown type: {bean_type}. Valid: {', '.join(sorted(valid_types))}")
     if parent_id := fields.get("parent_id"):
         try:
             store.get(parent_id)
         except BeanNotFoundError:
             raise BeanNotFoundError(f"Parent bean {parent_id} does not exist")
-    bean = Bean(title=title, **fields)
+    bean = Bean(title=title, id=BeanId.generate(bean_type), **fields)
     store.create(bean)
     if deps:
         for dep_id in deps:
