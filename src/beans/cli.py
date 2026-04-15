@@ -70,7 +70,7 @@ def default_parent_id():
 class RunContext(BaseModel):
     db: Path | None = None
     project: str | None = None
-    json: bool = False
+    json_output: bool = False
     dry_run: bool = False
     fields: list[str] | None = None
 
@@ -87,7 +87,7 @@ def main(
     ] = None,
 ):
     ctx.obj = RunContext(
-        db=db, project=project, json=json_output, dry_run=dry_run,
+        db=db, project=project, json_output=json_output, dry_run=dry_run,
         fields=fields.split(",") if fields else None,
     )
 
@@ -123,7 +123,7 @@ def output(data, json=False, fields=None) -> str:
 
 def error(rc: RunContext, e: Exception):
     err = Error(message=str(e))
-    if rc.json:
+    if rc.json_output:
         typer.echo(err.model_dump_json())
     else:
         typer.echo(err.message, err=True)
@@ -207,7 +207,7 @@ def create(
     except (ValidationError, BeanNotFoundError) as e:
         error(rc, e)
 
-    typer.echo(output(bean, rc.json))
+    typer.echo(output(bean, rc.json_output))
 
 
 @app.command()
@@ -221,7 +221,7 @@ def show(ctx: typer.Context, bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(rc, e)
 
-    if rc.json:
+    if rc.json_output:
         data = bean.model_dump()
         data["blocked_by"] = [str(d.from_id) for d in all_deps if d.to_id == bean_id and d.dep_type == "blocks"]
         data["blocks"] = [str(d.to_id) for d in all_deps if d.from_id == bean_id and d.dep_type == "blocks"]
@@ -264,7 +264,7 @@ def update(
     except (BeanNotFoundError, ValidationError) as e:
         error(rc, e)
 
-    typer.echo(output(bean, rc.json))
+    typer.echo(output(bean, rc.json_output))
 
 
 @app.command()
@@ -282,7 +282,7 @@ def close(
     except (BeanNotFoundError, OpenChildrenError) as e:
         error(rc, e)
 
-    typer.echo(output(bean, rc.json))
+    typer.echo(output(bean, rc.json_output))
 
 
 @app.command()
@@ -295,7 +295,7 @@ def delete(ctx: typer.Context, bean_id: BeanIdArg):
     except BeanNotFoundError as e:
         error(rc, e)
 
-    if not rc.json:
+    if not rc.json_output:
         typer.echo(f"Deleted {bean_id}")
 
 
@@ -313,7 +313,7 @@ def claim(
     except (BeanNotFoundError, ValueError) as e:
         error(rc, e)
 
-    typer.echo(output(bean, rc.json))
+    typer.echo(output(bean, rc.json_output))
 
 
 @app.command()
@@ -330,14 +330,14 @@ def release(
     elif mine:
         with get_store(rc) as store:
             beans = release_mine(store, actor)
-        typer.echo(output(beans, rc.json))
+        typer.echo(output(beans, rc.json_output))
     elif bean_id:
         try:
             with get_store(rc) as store:
                 bean = release_bean(store, bean_id, actor)
         except (BeanNotFoundError, ValueError) as e:
             error(rc, e)
-        typer.echo(output(bean, rc.json))
+        typer.echo(output(bean, rc.json_output))
     else:
         error(rc, ValueError("Provide a bean id or --mine"))
 
@@ -364,7 +364,7 @@ def list_cmd(
     with get_store(rc) as store:
         beans = list_beans(store, types=types, statuses=statuses, parent_id=parent)
 
-    typer.echo(output(beans, rc.json, rc.fields))
+    typer.echo(output(beans, rc.json_output, rc.fields))
 
 
 @app.command()
@@ -383,7 +383,7 @@ def ready(
     with get_store(rc) as store:
         beans = ready_beans(store, assignee=assignee, unassigned=unassigned, parent_id=parent)
 
-    typer.echo(output(beans, rc.json, rc.fields))
+    typer.echo(output(beans, rc.json_output, rc.fields))
 
 
 @app.command()
@@ -393,7 +393,7 @@ def stats(ctx: typer.Context):
     with get_store(rc) as store:
         data = get_stats(store)
 
-    if rc.json:
+    if rc.json_output:
         typer.echo(json.dumps(data))
     else:
         for section, counts in data.items():
@@ -446,7 +446,7 @@ def graph_cmd(ctx: typer.Context):
     with get_store(rc) as store:
         data = build_graph(store)
 
-    if rc.json:
+    if rc.json_output:
         typer.echo(json.dumps(data))
     else:
         text = format_graph(data)
@@ -461,7 +461,7 @@ def search(ctx: typer.Context, query: str):
     with get_store(rc) as store:
         beans = search_beans(store, query)
 
-    typer.echo(output(beans, rc.json, rc.fields))
+    typer.echo(output(beans, rc.json_output, rc.fields))
 
 
 @app.command()
@@ -561,7 +561,7 @@ def dep_add(
             dep = add_dep(store, from_id, to_id, dep_type)
     except CyclicDepError as e:
         error(rc, e)
-    typer.echo(output(dep, rc.json))
+    typer.echo(output(dep, rc.json_output))
 
 
 @dep_app.command("remove")
@@ -578,5 +578,5 @@ def dep_remove(
     except DepNotFoundError as e:
         error(rc, e)
 
-    if not rc.json:
+    if not rc.json_output:
         typer.echo(f"Removed {from_id} -> {to_id}")
