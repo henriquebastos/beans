@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sqlite3
+from typing import Self
 
 # Internal imports
 from beans.models import Bean, BeanNotFoundError, Dep
@@ -436,7 +437,7 @@ class Store:
         return self.dep.remove(from_id, to_id)
 
     @classmethod
-    def from_path(cls, db_path: Path, dry_run=False) -> Store:
+    def from_path(cls, db_path: Path, dry_run=False) -> Self:
         return cls(sqlite3.connect(db_path), dry_run=dry_run)
 
     def close(self):

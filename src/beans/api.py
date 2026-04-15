@@ -1,5 +1,5 @@
 # Python imports
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Internal imports
 from beans.models import (
@@ -54,7 +54,7 @@ def close_bean(store: Store, bean_id, reason=None, force=False) -> Bean:
             raise OpenChildrenError(
                 f"Cannot close {bean_id}: {count} open {'child' if count == 1 else 'children'} remain"
             )
-    fields = {"status": "closed", "closed_at": datetime.now(timezone.utc).isoformat()}
+    fields = {"status": "closed", "closed_at": datetime.now(UTC).isoformat()}
     if reason:
         fields["close_reason"] = reason
     if store.update(bean_id, **fields) == 0:

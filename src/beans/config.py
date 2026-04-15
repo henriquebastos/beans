@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Self
 
 # Pip imports
 from pydantic import BaseModel, Field
@@ -49,7 +50,7 @@ class Config(BaseModel):
         return len(self.types) < before
 
     @classmethod
-    def from_path(cls, path) -> "Config":
+    def from_path(cls, path) -> Self:
         """Load from existing file, or create empty if file doesn't exist."""
         path = Path(path)
         if not path.exists():

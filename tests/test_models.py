@@ -1,5 +1,5 @@
 # Python imports
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import re
 
 from pydantic import ValidationError
@@ -9,7 +9,7 @@ import pytest
 
 from beans.models import Bean, BeanId, Error
 
-FIXED_TIME = datetime(2025, 1, 1, tzinfo=timezone.utc)
+FIXED_TIME = datetime(2025, 1, 1, tzinfo=UTC)
 
 
 class TestBeanDefaults:
