@@ -8,6 +8,7 @@ import subprocess
 
 # Internal imports
 from beans.config import Config, Project, config_path, data_dir
+from beans.models import NotFoundError
 from beans.store import Store
 
 DEFAULT_BEANS_DIR = ".beans"
@@ -67,9 +68,8 @@ def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=EN
     return walk_beans_dir(start=start, dirname=dirname)
 
 
-class ProjectNotFoundError(KeyError):
-    # KeyError wraps str(e) in quotes; use the plain message for CLI output.
-    __str__ = BaseException.__str__
+class ProjectNotFoundError(NotFoundError):
+    template = "Project '{0}' not found in registry"
 
 
 def resolve_db(
@@ -89,7 +89,7 @@ def resolve_db(
         cfg = Config.from_path(config_file or config_path())
         p = cfg.find_by_name(project)
         if p is None:
-            raise ProjectNotFoundError(f"Project '{project}' not found in registry")
+            raise ProjectNotFoundError(project)
         return Path(p.store) / db_name
     try:
         return find_beans_dir(config_file=config_file) / db_name

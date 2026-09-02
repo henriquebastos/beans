@@ -9,13 +9,25 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class BeanNotFoundError(KeyError):
-    # KeyError wraps str(e) in quotes; use the plain message for CLI output.
-    __str__ = BaseException.__str__
+class NotFoundError(KeyError):
+    # KeyError wraps str(e) in quotes; raise with the offending ids and
+    # let each subclass render its own instructive message.
+    template: str
+
+    def __str__(self):
+        return self.template.format(*self.args)
 
 
-class DepNotFoundError(KeyError):
-    __str__ = BaseException.__str__
+class BeanNotFoundError(NotFoundError):
+    template = "Bean not found: {0}"
+
+
+class ParentBeanNotFoundError(BeanNotFoundError):
+    template = "Parent bean {0} does not exist"
+
+
+class DepNotFoundError(NotFoundError):
+    template = "No dependency from {0} to {1}"
 
 
 class CyclicDepError(ValueError):

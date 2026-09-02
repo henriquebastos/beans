@@ -11,6 +11,7 @@ from beans.models import (
     Dep,
     DepNotFoundError,
     OpenChildrenError,
+    ParentBeanNotFoundError,
 )
 from beans.store import Store
 
@@ -23,7 +24,7 @@ def create_bean(store: Store, title, valid_types=(), deps=(), **fields) -> Bean:
         try:
             store.get(parent_id)
         except BeanNotFoundError:
-            raise BeanNotFoundError(f"Parent bean {parent_id} does not exist")
+            raise ParentBeanNotFoundError(parent_id)
     bean = Bean(title=title, id=BeanId.generate(bean_type), **fields)
     store.create(bean)
     if deps:
@@ -40,7 +41,7 @@ def update_bean(store: Store, bean_id, **fields) -> Bean:
     validated = BeanUpdate(**fields)
     clean = validated.model_dump(exclude_none=True)
     if store.update(bean_id, **clean) == 0:
-        raise BeanNotFoundError(f"Bean not found: {bean_id}")
+        raise BeanNotFoundError(bean_id)
     return store.get(bean_id)
 
 
@@ -58,7 +59,7 @@ def close_bean(store: Store, bean_id, reason=None, force=False) -> Bean:
     if reason:
         fields["close_reason"] = reason
     if store.update(bean_id, **fields) == 0:
-        raise BeanNotFoundError(f"Bean not found: {bean_id}")
+        raise BeanNotFoundError(bean_id)
     return store.get(bean_id)
 
 
@@ -182,7 +183,7 @@ def add_dep(store: Store, from_id, to_id, dep_type="blocks") -> Dep:
 def remove_dep(store: Store, from_id, to_id) -> int:
     count = store.remove_dep(from_id, to_id)
     if count == 0:
-        raise DepNotFoundError(f"No dependency from {from_id} to {to_id}")
+        raise DepNotFoundError(from_id, to_id)
     return count
 
 

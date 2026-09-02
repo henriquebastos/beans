@@ -354,7 +354,7 @@ class TestProjectFlag:
 
         result = cli("--project", "nonexistent", "list")
         assert result.exit_code == 1
-        assert "not found" in result.output.lower()
+        assert "Project 'nonexistent' not found in registry" in result.output
 
 
 class TestProjectDiscovery:
