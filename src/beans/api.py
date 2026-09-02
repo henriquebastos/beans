@@ -40,7 +40,7 @@ def update_bean(store: Store, bean_id, **fields) -> Bean:
     validated = BeanUpdate(**fields)
     clean = validated.model_dump(exclude_none=True)
     if store.update(bean_id, **clean) == 0:
-        raise BeanNotFoundError(bean_id)
+        raise BeanNotFoundError(f"Bean not found: {bean_id}")
     return store.get(bean_id)
 
 
@@ -58,7 +58,7 @@ def close_bean(store: Store, bean_id, reason=None, force=False) -> Bean:
     if reason:
         fields["close_reason"] = reason
     if store.update(bean_id, **fields) == 0:
-        raise BeanNotFoundError(bean_id)
+        raise BeanNotFoundError(f"Bean not found: {bean_id}")
     return store.get(bean_id)
 
 

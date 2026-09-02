@@ -68,7 +68,8 @@ def find_beans_dir(start=None, dirname=DEFAULT_BEANS_DIR, env=os.environ, var=EN
 
 
 class ProjectNotFoundError(KeyError):
-    pass
+    # KeyError wraps str(e) in quotes; use the plain message for CLI output.
+    __str__ = BaseException.__str__
 
 
 def resolve_db(

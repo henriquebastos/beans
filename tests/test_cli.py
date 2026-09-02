@@ -398,6 +398,24 @@ class TestJsonErrorOutput:
         assert "message" in data
 
 
+class TestNotFoundMessages:
+    """Unknown ids produce instructive messages, not KeyError's quoted echo of the id."""
+
+    def test_show_unknown_id_says_bean_not_found(self, cli):
+        exit_code, output = cli("show bean-00000000")
+        assert exit_code != 0
+        assert "Bean not found: bean-00000000" in output
+
+    def test_show_unknown_id_message_is_not_quoted(self, cli):
+        _, output = cli("show bean-00000000")
+        assert "'" not in output
+
+    def test_dep_remove_unknown_message_is_not_quoted(self, cli):
+        exit_code, output = cli("dep remove bean-aaaaaaaa bean-bbbbbbbb")
+        assert exit_code != 0
+        assert output.strip() == "No dependency from bean-aaaaaaaa to bean-bbbbbbbb"
+
+
 class TestInputValidation:
     """Invalid inputs are rejected with clear errors."""
 

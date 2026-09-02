@@ -172,7 +172,7 @@ class BeanStore:
         cursor = self.conn.execute("SELECT * FROM beans WHERE id = ?", (bean_id,))
         bean = one_bean(cursor)
         if bean is None:
-            raise BeanNotFoundError(bean_id)
+            raise BeanNotFoundError(f"Bean not found: {bean_id}")
         return bean
 
     def update(self, bean_id, **fields) -> int:

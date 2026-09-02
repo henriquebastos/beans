@@ -10,11 +10,12 @@ from pydantic import BaseModel, Field
 
 
 class BeanNotFoundError(KeyError):
-    pass
+    # KeyError wraps str(e) in quotes; use the plain message for CLI output.
+    __str__ = BaseException.__str__
 
 
 class DepNotFoundError(KeyError):
-    pass
+    __str__ = BaseException.__str__
 
 
 class CyclicDepError(ValueError):
