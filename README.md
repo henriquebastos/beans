@@ -60,7 +60,7 @@ away everything else:
 | | Beads | Beans |
 |---|---|---|
 | **Storage** | Dolt SQL server (~200MB, background daemon, TCP ports) | SQLite (zero-config, embedded, stdlib) |
-| **Installation** | `curl \| bash` + `sudo` + signature stripping | `uv add beans` or `pip install beans` |
+| **Installation** | `curl \| bash` + `sudo` + signature stripping | `uv add magic-beans` or `pip install magic-beans` |
 | **Git hooks** | 5 persistent hooks installed silently | None |
 | **Commit modification** | Silent trailer injection | Never touches your commits |
 | **Background processes** | Persistent MySQL-protocol daemon | None |
